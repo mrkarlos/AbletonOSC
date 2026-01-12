@@ -441,6 +441,28 @@ Represents Live scenes.
 </details>
 
 ---
+## SessionRing API
+
+Represents Live SessionRing.
+
+<details>
+<summary><b>Documentation</b>: SessionRing API</summary>
+
+### SessionRing methods
+
+| Address                | Query params                    | Response params | Description                                           |
+|:-----------------------|:--------------------------------|:----------------|:------------------------------------------------------|
+| /live/session_ring/on  | ring_id, num_tracks, num_scenes |                 | Enable the session ring                               |
+| /live/session_ring/off | ring_id                         |                 | Disables the session ring and<br/>stops the listeners |
+
+
+### SessionRing properties
+
+ - Changes for SessionRing property can be listened for by calling `/live/SessionRing/start_listen/`
+ - Responses will be sent to `/live/scene/get/<property>`, with parameters `<scene_index> <property_value>`
+
+</details>
+---
 
 ## Device API
 

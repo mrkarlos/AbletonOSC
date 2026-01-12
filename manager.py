@@ -92,6 +92,7 @@ class Manager(ControlSurface):
                 abletonosc.TrackHandler(self),
                 abletonosc.DeviceHandler(self),
                 abletonosc.ViewHandler(self),
+                abletonosc.SessionRingHandler(self),
                 abletonosc.SceneHandler(self)
             ]
 
@@ -123,6 +124,7 @@ class Manager(ControlSurface):
             importlib.reload(abletonosc.song)
             importlib.reload(abletonosc.track)
             importlib.reload(abletonosc.view)
+            importlib.reload(abletonosc.session_ring)
             importlib.reload(abletonosc)
         except Exception as e:
             exc = traceback.format_exc()
