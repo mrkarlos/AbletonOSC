@@ -1,4 +1,6 @@
 from ableton.v2.control_surface import ControlSurface
+from _Framework.EncoderElement import EncoderElement
+import Live
 
 from . import abletonosc
 
@@ -16,6 +18,7 @@ class Manager(ControlSurface):
         self.log_level = "info"
 
         self.handlers = []
+        self.midi_mappings = {}
 
         try:
             self.osc_server = abletonosc.OSCServer()
@@ -77,11 +80,14 @@ class Manager(ControlSurface):
             assert log_level in ("debug", "info", "warning", "error", "critical")
             self.log_level = log_level
             self.log_file_handler.setLevel(self.log_level.upper())
+        def show_message_callback(params):
+            self.show_message(params[0])
 
         self.osc_server.add_handler("/live/test", test_callback)
         self.osc_server.add_handler("/live/api/reload", reload_callback)
         self.osc_server.add_handler("/live/api/get/log_level", get_log_level_callback)
         self.osc_server.add_handler("/live/api/set/log_level", set_log_level_callback)
+        self.osc_server.add_handler("/live/api/show_message", show_message_callback)
 
         with self.component_guard():
             self.handlers = [
@@ -93,7 +99,8 @@ class Manager(ControlSurface):
                 abletonosc.DeviceHandler(self),
                 abletonosc.ViewHandler(self),
                 abletonosc.SessionRingHandler(self),
-                abletonosc.SceneHandler(self)
+                abletonosc.SceneHandler(self),
+                abletonosc.MidiMapHandler(self),
             ]
 
     def clear_api(self):
@@ -141,4 +148,13 @@ class Manager(ControlSurface):
         self.osc_server.shutdown()
         super().disconnect()
 
+    def build_midi_map(self, midi_map_handle):
+        """
+        Called by Live to build the MIDI map.
+        """
+        logger.debug("Building MIDI map...")
 
+        for channel, cc in self.midi_mappings.keys():
+            parameter = self.midi_mappings[(channel, cc)]
+            Live.MidiMap.map_midi_cc(midi_map_handle, parameter, channel, cc, Live.MidiMap.MapMode.absolute, 1)
+            logger.debug("Mapped CC %d on channel %d to parameter %s" % (cc, channel, parameter.name))
