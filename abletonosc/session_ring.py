@@ -1,6 +1,6 @@
 
 from typing import Optional, Tuple, Any
-from ableton.v2.control_surface.components import SessionRingComponent
+# from ableton.v2.control_surface.components import SessionRingComponent
 from .handler import AbletonOSCHandler
 
 class SessionRingHandler(AbletonOSCHandler):
@@ -11,16 +11,20 @@ class SessionRingHandler(AbletonOSCHandler):
         self.class_identifier = "session_ring"
 
         # Initialize the Session Ring
-        self.session_ring = None
+        # self.session_ring = None
         self.num_tracks = 4
         self.num_scenes = 2
 
         # Track listening state
-        self.tracks_listener_active = False
-        self.scenes_listener_active = False
-        self.position_listener_active = False
+        self.tracks_listener_is_active = False
+        self.scenes_listener_is_active = False
+        self.position_listener_is_active = False
 
         self.logger.info("SessionRingHandler initialized but inactive. Use /live/session_ring/on to activate.")
+
+    @property
+    def session_ring(self):
+        return getattr(self.manager, "session_ring", None)
 
     def init_api(self):
         """Registers OSC commands for controlling the Session Ring."""
@@ -48,13 +52,21 @@ class SessionRingHandler(AbletonOSCHandler):
                 num_scenes = total_scenes  # Limit to the available scenes
 
             # Initialize the session ring with valid dimensions
-            self.session_ring = SessionRingComponent(num_tracks, num_scenes)
+            # self.session_ring = SessionRingComponent(num_tracks, num_scenes)
             self.num_tracks = num_tracks
             self.num_scenes = num_scenes
+
+            # Stop listeners
+            stop_tracks_listener()
+            stop_scenes_listener()
+            stop_position_listener()
+
+            self.manager.build_session_ring(num_tracks, num_scenes, is_enabled=True)
 
             # Start listeners
             start_tracks_listener()
             start_scenes_listener()
+            start_position_listener()
 
             self.logger.info(f"Session ring turned on with size ({num_tracks}x{num_scenes})")
 
@@ -66,7 +78,7 @@ class SessionRingHandler(AbletonOSCHandler):
 
                 # Properly notify Ableton Live's API that the session ring is being destroyed
                 self.session_ring.set_enabled(False)  # Disable it
-                self.session_ring = None  # Remove reference
+                # self.session_ring = None  # Remove reference
                 self.logger.info("Session ring turned off")
             else:
                 self.logger.info("Cannot turn off, session_ring is None")
@@ -95,8 +107,8 @@ class SessionRingHandler(AbletonOSCHandler):
                 new_scene_offset = self.session_ring.scene_offset + y_offset
 
                 # Ensure the new offsets stay within the allowed range
-                max_tracks = len(self.song.tracks) - self.num_tracks
-                max_scenes = len(self.song.scenes) - self.num_scenes
+                max_tracks = max(0, len(self.song.tracks) - self.num_tracks)
+                max_scenes = max(0, len(self.song.scenes) - self.num_scenes)
 
                 new_track_offset = max(0, min(new_track_offset, max_tracks))
                 new_scene_offset = max(0, min(new_scene_offset, max_scenes))
@@ -198,60 +210,74 @@ class SessionRingHandler(AbletonOSCHandler):
         def start_tracks_listener(params: Tuple[Any] = ()):
             """Start listening for track offset changes."""
             if self.session_ring:
-                if not self.tracks_listener_active:
+                if not self.tracks_listener_is_active:
                     self.session_ring.add_offset_listener(self.tracks_offset_changed)
-                    self.tracks_listener_active = True
+                    self.tracks_listener_is_active = True
                     self.logger.info("Started session ring tracks listener")
             else:
                 self.logger.info("Cannot start tracks listener, session_ring is None")
 
         def stop_tracks_listener(params: Tuple[Any] = ()):
-            """Stop listening for track offset changes."""
-            if self.session_ring:
-                if self.tracks_listener_active:
-                    self.session_ring.remove_offset_listener(self.tracks_offset_changed)
-                    self.tracks_listener_active = False
-                    self.logger.info("Stopped session ring tracks listener")
-            else:
+
+            if self.session_ring is None:
                 self.logger.info("Cannot stop tracks listener, session_ring is None")
+                return
+
+            """Stop listening for track offset changes."""
+            if self.tracks_listener_is_active:
+                self.session_ring.remove_offset_listener(self.tracks_offset_changed)
+                self.tracks_listener_is_active = False
+                self.logger.info("Stopped session ring tracks listener")
+            else:
+                self.logger.info("Cannot stop tracks listener, is is not active")
 
         def start_scenes_listener(params: Tuple[Any] = ()):
             """Start listening for scene offset changes."""
             if self.session_ring:
-                if not self.scenes_listener_active:
+                if not self.scenes_listener_is_active:
                     self.session_ring.add_offset_listener(self.scenes_offset_changed)
-                    self.scenes_listener_active = True
+                    self.scenes_listener_is_active = True
                     self.logger.info("Started session ring scenes listener")
             else:
                 self.logger.info("Cannot start scenes listener, session_ring is None")
 
         def stop_scenes_listener(params: Tuple[Any] = ()):
             """Stop listening for scene offset changes."""
-            if self.scenes_listener_active:
+            if self.session_ring is None:
+                self.logger.info("Cannot stop scenes listener, session_ring is None")
+                return
+
+            if self.scenes_listener_is_active:
                 self.session_ring.remove_offset_listener(self.scenes_offset_changed)
-                self.scenes_listener_active = False
+                self.scenes_listener_is_active = False
                 self.logger.info("Stopped session ring scenes listener")
             else:
-                self.logger.info("Cannot stop scenes listener, session_ring is None")
+                self.logger.info("Did not stop scene listener, is is not active")
+
 
         def start_position_listener(params: Tuple[Any] = ()):
             """Start listening for scene offset changes."""
             if self.session_ring:
-                if not self.position_listener_active:
+                if not self.position_listener_is_active:
                     self.session_ring.add_offset_listener(self.position_changed)
-                    self.position_listener_active = True
+                    self.position_listener_is_active = True
                     self.logger.info("Started session ring position listener")
             else:
                 self.logger.info("Cannot start position listener, session_ring is None")
 
         def stop_position_listener(params: Tuple[Any] = ()):
+
+            if self.session_ring is None:
+                self.logger.info("Cannot stop position listener, session_ring is None")
+                return
+
             """Stop listening for position changes."""
-            if self.position_listener_active:
+            if self.position_listener_is_active:
                 self.session_ring.remove_offset_listener(self.position_changed)
-                self.position_listener_active = False
+                self.position_listener_is_active = False
                 self.logger.info("Stopped session ring position listener")
             else:
-                self.logger.info("Cannot stop position listener, session_ring is None")
+                self.logger.info("Cannot stop position listener, is is not active")
 
         # Register OSC Handlers
         self.osc_server.add_handler("/live/session_ring/on", turn_on)
@@ -275,18 +301,30 @@ class SessionRingHandler(AbletonOSCHandler):
         self.osc_server.add_handler("/live/session_ring/stop_listen/scenes", stop_scenes_listener)
 
     def tracks_offset_changed(self, *args, **kwargs):
+        if self.session_ring is None:
+            self.warning.info("Cannot process callback, session_ring is None")
+            return
+
         """Callback function triggered when the session ring's track offset changes."""
         track_indexes = tuple(range(self.session_ring.track_offset, self.session_ring.track_offset + self.num_tracks))
         self.osc_server.send("/live/session_ring/get/tracks", track_indexes) # Send the Tuple
         self.logger.info(f"Session ring tracks updated: {track_indexes}")
 
     def scenes_offset_changed(self, *args, **kwargs):
+        if self.session_ring is None:
+            self.warning.info("Cannot process callback, session_ring is None")
+            return
+
         """Callback function triggered when the session ring's scene offset changes."""
         scene_indexes = tuple(range(self.session_ring.scene_offset, self.session_ring.scene_offset + self.num_scenes))
         self.osc_server.send("/live/session_ring/get/scenes", scene_indexes) # Send the Tuple
         self.logger.info(f"Session ring scenes updated: {scene_indexes}")
 
     def position_changed(self, *args, **kwargs):
+        if self.session_ring is None:
+            self.warning.info("Cannot process callback, session_ring is None")
+            return
+
         """Callback function triggered when the session ring's position changes."""
         position_indexes = (self.session_ring.track_offset, self.session_ring.scene_offset)
         self.osc_server.send("/live/session_ring/get/position", position_indexes) # Send the Tuple

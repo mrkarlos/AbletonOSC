@@ -1,4 +1,5 @@
 from ableton.v2.control_surface import ControlSurface
+from ableton.v2.control_surface.components import SessionRingComponent
 from _Framework.EncoderElement import EncoderElement
 import Live
 
@@ -19,6 +20,7 @@ class Manager(ControlSurface):
 
         self.handlers = []
         self.midi_mappings = {}
+        self.session_ring = None
 
         try:
             self.osc_server = abletonosc.OSCServer()
@@ -90,6 +92,11 @@ class Manager(ControlSurface):
         self.osc_server.add_handler("/live/api/show_message", show_message_callback)
 
         with self.component_guard():
+
+            # Permanent session ring owned by the ControlSurface
+            if not hasattr(self, "session_ring") or self.session_ring is None:
+                self.build_session_ring(num_tracks=4, num_scenes=2, is_enabled=False)
+
             self.handlers = [
                 abletonosc.SongHandler(self),
                 abletonosc.ApplicationHandler(self),
@@ -147,6 +154,29 @@ class Manager(ControlSurface):
         self.stop_logging()
         self.osc_server.shutdown()
         super().disconnect()
+
+    def build_session_ring(self, num_tracks: int, num_scenes: int, is_enabled: bool = False):
+        # clamp here if you want (or keep it in handler)
+        with self.component_guard():
+            existing = getattr(self, "session_ring", None)
+
+            if existing is not None:
+                # If same size, keep it
+                if existing.num_tracks == num_tracks and existing.num_scenes == num_scenes:
+                    return
+
+                # Tear down old ring cleanly
+                try:
+                    existing.set_enabled(False)
+                    existing.disconnect()
+                except Exception:
+                    logger.error("Unable to disconnect existing Session Ring")
+                    pass
+
+            # Create the new ring
+            self.session_ring = SessionRingComponent(num_tracks, num_scenes)
+            self.session_ring.set_enabled(is_enabled)
+            logger.debug("Created a Session Ring with tracks: %d, scenes: %d" % (num_tracks, num_scenes))
 
     def build_midi_map(self, midi_map_handle):
         """
