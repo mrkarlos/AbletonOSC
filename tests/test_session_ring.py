@@ -86,3 +86,167 @@ def test_session_ring_off_is_idempotent(client):
     wait_one_tick()
     client.send_message("/live/session_ring/off", ())
     wait_one_tick()
+
+# ---------------------------------------------------------------------------
+# Follow selected cell
+# ---------------------------------------------------------------------------
+
+def test_follow_scene_moves_ring_when_outside_bounds(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/follow/on", ())
+    wait_one_tick()
+
+    # Select scene index 2 — outside ring [0, 2)
+    client.send_message("/live/view/set/selected_scene", (2,))
+    wait_one_tick()
+
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[1] == 2, "Ring scene offset should align to selected scene"
+
+    client.send_message("/live/session_ring/follow/off", ())
+    wait_one_tick()
+
+def test_follow_track_moves_ring_when_outside_bounds(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/follow/on", ())
+    wait_one_tick()
+
+    # Select track index 2 — outside ring [0, 2)
+    client.send_message("/live/view/set/selected_track", (2,))
+    wait_one_tick()
+
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[0] == 2, "Ring track offset should align to selected track"
+
+    client.send_message("/live/session_ring/follow/off", ())
+    wait_one_tick()
+
+def test_follow_does_not_move_ring_when_inside_bounds(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/follow/on", ())
+    wait_one_tick()
+
+    # Select scene 1 — inside ring [0, 2), ring should stay at 0
+    client.send_message("/live/view/set/selected_scene", (1,))
+    wait_one_tick()
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[1] == 0, "Ring should not move when selection is inside bounds"
+
+    # Select track 1 — inside ring [0, 2), ring should stay at 0
+    client.send_message("/live/view/set/selected_track", (1,))
+    wait_one_tick()
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[0] == 0, "Ring should not move when selection is inside bounds"
+
+    client.send_message("/live/session_ring/follow/off", ())
+    wait_one_tick()
+
+def test_follow_persists_after_ring_rebuild(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/follow/on", ())
+    wait_one_tick()
+
+    # Rebuild ring with different dimensions
+    client.send_message("/live/session_ring/on", (3, 3))
+    wait_one_tick()
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    # Select scene outside new ring [0, 3)
+    client.send_message("/live/view/set/selected_scene", (3,))
+    wait_one_tick()
+
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[1] == 3, "Follow mode should persist after ring rebuild"
+
+    client.send_message("/live/session_ring/follow/off", ())
+    wait_one_tick()
+
+# ---------------------------------------------------------------------------
+# Page up / page down
+# ---------------------------------------------------------------------------
+
+def test_page_down(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    client.send_message("/live/session_ring/set/page_size", (2,))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/page_down", ())
+    wait_one_tick()
+
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[1] == 2, "Page down should advance scene offset by page_size"
+
+def test_page_up(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/position", (0, 4))
+    client.send_message("/live/session_ring/set/page_size", (2,))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/page_up", ())
+    wait_one_tick()
+
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[1] == 2, "Page up should retreat scene offset by page_size"
+
+def test_page_down_clamps_at_end(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/page_size", (999,))
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/page_down", ())
+    wait_one_tick()
+    pos1 = client.query("/live/session_ring/get/position", ())
+
+    # A second page down should not advance further (already at max)
+    client.send_message("/live/session_ring/page_down", ())
+    wait_one_tick()
+    pos2 = client.query("/live/session_ring/get/position", ())
+
+    assert pos1 == pos2, "Repeated page down should not move past the end"
+    assert pos1[1] >= 0
+
+def test_page_up_clamps_at_start(client):
+    client.send_message("/live/session_ring/follow/off", ())
+    client.send_message("/live/session_ring/on", (2, 2))
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    client.send_message("/live/session_ring/set/page_size", (999,))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/page_up", ())
+    wait_one_tick()
+
+    pos = client.query("/live/session_ring/get/position", ())
+    assert pos[1] == 0, "Page up from start should clamp to 0"
+
+def test_get_set_page_size(client):
+    client.send_message("/live/session_ring/set/page_size", (4,))
+    wait_one_tick()
+
+    size = client.query("/live/session_ring/get/page_size", ())
+    assert size == (4,), "Page size should be retrievable after setting"
+
+    # Restore default
+    client.send_message("/live/session_ring/set/page_size", (8,))
+    wait_one_tick()

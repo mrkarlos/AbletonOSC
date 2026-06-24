@@ -13,6 +13,11 @@ class SessionRingHandler(AbletonOSCHandler):
         self._scenes_cb = None
         self._position_cb = None
 
+        self._follow_mode = False
+        self._follow_scene_cb = None
+        self._follow_track_cb = None
+        self._page_size = 8
+
         self.logger.info("SessionRingHandler initialized but inactive. Use /live/session_ring/on to activate.")
 
     @property
@@ -154,6 +159,13 @@ class SessionRingHandler(AbletonOSCHandler):
             else:
                 self.logger.info("Cannot get scenes, session_ring is None")
 
+        def get_page_size(params: Optional[Tuple] = ()):
+            return (self._page_size,)
+
+        def set_page_size(params: Tuple):
+            self._page_size = max(1, int(params[0]))
+            self.logger.info("Page size set to %d" % self._page_size)
+
         self.osc_server.add_handler("/live/session_ring/on",               turn_on)
         self.osc_server.add_handler("/live/session_ring/off",              turn_off)
         self.osc_server.add_handler("/live/session_ring/move",             move_session_ring)
@@ -173,12 +185,108 @@ class SessionRingHandler(AbletonOSCHandler):
         self.osc_server.add_handler("/live/session_ring/stop_listen/scenes",    self._stop_scenes_listener)
         self.osc_server.add_handler("/live/session_ring/start_listen/position", self._start_position_listener)
         self.osc_server.add_handler("/live/session_ring/stop_listen/position",  self._stop_position_listener)
+        self.osc_server.add_handler("/live/session_ring/follow/on",             self._enable_follow)
+        self.osc_server.add_handler("/live/session_ring/follow/off",            self._disable_follow)
+        self.osc_server.add_handler("/live/session_ring/page_up",               self._page_up)
+        self.osc_server.add_handler("/live/session_ring/page_down",             self._page_down)
+        self.osc_server.add_handler("/live/session_ring/get/page_size",         get_page_size)
+        self.osc_server.add_handler("/live/session_ring/set/page_size",         set_page_size)
 
     def clear_api(self):
+        self._disable_follow()
         self._stop_tracks_listener()
         self._stop_scenes_listener()
         self._stop_position_listener()
         super().clear_api()
+
+    #--------------------------------------------------------------------------------
+    # Follow selected cell
+    #--------------------------------------------------------------------------------
+
+    def _enable_follow(self, params: Tuple[Any] = ()):
+        if self._follow_mode:
+            return
+        self._follow_mode = True
+        self._follow_scene_cb = self._on_selected_scene_changed
+        self._follow_track_cb = self._on_selected_track_changed
+        self.song.view.add_selected_scene_listener(self._follow_scene_cb)
+        self.song.view.add_selected_track_listener(self._follow_track_cb)
+        self.logger.info("Follow selected cell mode enabled")
+
+    def _disable_follow(self, params: Tuple[Any] = ()):
+        if not self._follow_mode:
+            return
+        self._follow_mode = False
+        if self._follow_scene_cb is not None:
+            try:
+                self.song.view.remove_selected_scene_listener(self._follow_scene_cb)
+            except Exception:
+                pass
+            self._follow_scene_cb = None
+        if self._follow_track_cb is not None:
+            try:
+                self.song.view.remove_selected_track_listener(self._follow_track_cb)
+            except Exception:
+                pass
+            self._follow_track_cb = None
+        self.logger.info("Follow selected cell mode disabled")
+
+    def _on_selected_scene_changed(self):
+        ring = self.session_ring
+        if ring is None:
+            return
+        try:
+            idx = list(self.song.scenes).index(self.song.view.selected_scene)
+        except ValueError:
+            return
+        offset = ring.scene_offset
+        num = ring.num_scenes
+        if offset <= idx < offset + num:
+            return
+        max_offset = max(0, len(self.song.scenes) - num)
+        new_offset = max(0, min(idx, max_offset))
+        ring.set_offsets(ring.track_offset, new_offset)
+        self.logger.info("Follow: scene offset adjusted to %d" % new_offset)
+
+    def _on_selected_track_changed(self):
+        ring = self.session_ring
+        if ring is None:
+            return
+        try:
+            idx = list(self.song.tracks).index(self.song.view.selected_track)
+        except ValueError:
+            return
+        offset = ring.track_offset
+        num = ring.num_tracks
+        if offset <= idx < offset + num:
+            return
+        max_offset = max(0, len(self.song.tracks) - num)
+        new_offset = max(0, min(idx, max_offset))
+        ring.set_offsets(new_offset, ring.scene_offset)
+        self.logger.info("Follow: track offset adjusted to %d" % new_offset)
+
+    #--------------------------------------------------------------------------------
+    # Page up / page down
+    #--------------------------------------------------------------------------------
+
+    def _page_up(self, params: Tuple[Any] = ()):
+        ring = self.session_ring
+        if ring is None:
+            self.logger.info("Cannot page up, session_ring is None")
+            return
+        new_offset = max(0, ring.scene_offset - self._page_size)
+        ring.set_offsets(ring.track_offset, new_offset)
+        self.logger.info("Page up: scene offset now %d" % new_offset)
+
+    def _page_down(self, params: Tuple[Any] = ()):
+        ring = self.session_ring
+        if ring is None:
+            self.logger.info("Cannot page down, session_ring is None")
+            return
+        max_offset = max(0, len(self.song.scenes) - ring.num_scenes)
+        new_offset = min(ring.scene_offset + self._page_size, max_offset)
+        ring.set_offsets(ring.track_offset, new_offset)
+        self.logger.info("Page down: scene offset now %d" % new_offset)
 
     #--------------------------------------------------------------------------------
     # Listener management

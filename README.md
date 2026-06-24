@@ -469,25 +469,75 @@ Represents a scene, used to trigger a row of clips simultaneously. A scene's nam
 ---
 ## SessionRing API
 
-Represents Live SessionRing.
+Represents the Live Session Ring — a movable viewport over tracks and scenes in the Session View.
 
 <details>
 <summary><b>Documentation</b>: SessionRing API</summary>
 
-### SessionRing methods
+### SessionRing lifecycle
 
-| Address                | Query params                    | Response params | Description                                           |
-|:-----------------------|:--------------------------------|:----------------|:------------------------------------------------------|
-| /live/session_ring/on  | num_tracks, num_scenes          |                 | Enable the session ring                               |
-| /live/session_ring/off |                                 |                 | Disables the session ring and<br/>stops the listeners |
+| Address                | Query params           | Response params | Description                                           |
+|:-----------------------|:-----------------------|:----------------|:------------------------------------------------------|
+| /live/session_ring/on  | num_tracks, num_scenes |                 | Enable the session ring with the given dimensions     |
+| /live/session_ring/off |                        |                 | Disable the session ring and stop all listeners       |
 
+### SessionRing movement
 
-### SessionRing properties
+| Address                              | Query params       | Response params | Description                                                     |
+|:-------------------------------------|:-------------------|:----------------|:----------------------------------------------------------------|
+| /live/session_ring/move              | x_offset, y_offset |                 | Move the ring by a relative (track, scene) offset               |
+| /live/session_ring/move_left         |                    |                 | Move the ring one track to the left                             |
+| /live/session_ring/move_right        |                    |                 | Move the ring one track to the right                            |
+| /live/session_ring/move_up           |                    |                 | Move the ring one scene up                                      |
+| /live/session_ring/move_down         |                    |                 | Move the ring one scene down                                    |
+| /live/session_ring/move_track_left   |                    |                 | Alias for move_left                                             |
+| /live/session_ring/move_track_right  |                    |                 | Alias for move_right                                            |
+| /live/session_ring/page_up           |                    |                 | Move the ring up by `page_size` scenes (clamped at start)       |
+| /live/session_ring/page_down         |                    |                 | Move the ring down by `page_size` scenes (clamped at end)       |
 
- - Changes for SessionRing property can be listened for by calling `/live/SessionRing/start_listen/`
- - Responses will be sent to `/live/scene/get/<property>`, with parameters `<scene_index> <property_value>`
+All movement is clamped so the ring never moves outside the song's tracks and scenes.
+
+### SessionRing position
+
+| Address                          | Query params                  | Response params               | Description                                   |
+|:---------------------------------|:------------------------------|:------------------------------|:----------------------------------------------|
+| /live/session_ring/get/position  |                               | track_offset, scene_offset    | Get the current top-left position of the ring |
+| /live/session_ring/set/position  | track_offset, scene_offset    |                               | Set the top-left position of the ring         |
+| /live/session_ring/get/tracks    |                               | track_index, ...              | Get the indices of all tracks in the ring     |
+| /live/session_ring/get/scenes    |                               | scene_index, ...              | Get the indices of all scenes in the ring     |
+| /live/session_ring/get/page_size |                               | page_size                     | Get the page size used by page_up/page_down   |
+| /live/session_ring/set/page_size | page_size                     |                               | Set the page size (default: 8)                |
+
+### Follow selected cell
+
+When follow mode is active, the ring automatically scrolls to keep the selected track and scene visible:
+
+- If the new selection is already within the ring's bounds, the ring does not move.
+- If the selected scene is outside the ring vertically, the ring's top edge aligns with the selected scene (clamped so the ring stays within the song).
+- If the selected track is outside the ring horizontally, the ring's left edge aligns with the selected track (clamped similarly).
+
+| Address                       | Query params | Response params | Description              |
+|:------------------------------|:-------------|:----------------|:-------------------------|
+| /live/session_ring/follow/on  |              |                 | Enable follow mode       |
+| /live/session_ring/follow/off |              |                 | Disable follow mode      |
+
+Follow mode persists across ring rebuilds (i.e. subsequent `/live/session_ring/on` calls with different dimensions).
+
+### SessionRing listeners
+
+Subscribe to position changes to receive push updates whenever the ring moves:
+
+| Address                                    | Query params | Response params            | Description                                              |
+|:-------------------------------------------|:-------------|:---------------------------|:---------------------------------------------------------|
+| /live/session_ring/start_listen/position   |              |                            | Start listening; replies sent to `.../get/position`      |
+| /live/session_ring/stop_listen/position    |              |                            | Stop listening for position changes                      |
+| /live/session_ring/start_listen/tracks     |              |                            | Start listening; replies sent to `.../get/tracks`        |
+| /live/session_ring/stop_listen/tracks      |              |                            | Stop listening for track offset changes                  |
+| /live/session_ring/start_listen/scenes     |              |                            | Start listening; replies sent to `.../get/scenes`        |
+| /live/session_ring/stop_listen/scenes      |              |                            | Stop listening for scene offset changes                  |
 
 </details>
+
 ---
 
 ## Device API
@@ -541,7 +591,6 @@ Can be used to create assignments between MIDI CC and Live parameters.
 | Address                | Query params | Response params | Description             |
 |:-----------------------|:-------------|:----------------|:------------------------|
 | /live/midimap/map_cc   | track_id, device_id, param_id, channel, cc     |  | Create an assignment such that control change `cc` on channel `channel` will control the specified parameter. |
-                                                |
 
 Note that, for consistency with other object types (and Live's internal API), **channels are indexed from zero** - so MIDI channel 1 should be queried with index `0`, etc.
 
