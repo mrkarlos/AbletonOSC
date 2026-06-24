@@ -28,7 +28,6 @@ def test_session_ring_resize_changes_reported_ranges(client):
     wait_one_tick()
     tracks = client.query("/live/session_ring/get/tracks", ())
     scenes = client.query("/live/session_ring/get/scenes", ())
-    # tracks/scenes reply is just indexes, no leading IDs
     assert len(tracks) == 4
     assert len(scenes) == 2
 

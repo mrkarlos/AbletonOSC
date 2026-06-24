@@ -9,9 +9,9 @@ class SessionRingHandler(AbletonOSCHandler):
         super().__init__(manager)
         self.class_identifier = "session_ring"
 
-        self.tracks_listener_is_active = False
-        self.scenes_listener_is_active = False
-        self.position_listener_is_active = False
+        self._tracks_cb = None
+        self._scenes_cb = None
+        self._position_cb = None
 
         self.logger.info("SessionRingHandler initialized but inactive. Use /live/session_ring/on to activate.")
 
@@ -185,81 +185,81 @@ class SessionRingHandler(AbletonOSCHandler):
     #--------------------------------------------------------------------------------
 
     def _start_tracks_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring:
-            if not self.tracks_listener_is_active:
-                self.session_ring.add_offset_listener(self.tracks_offset_changed)
-                self.tracks_listener_is_active = True
-                self.logger.info("Started session ring tracks listener")
-        else:
+        if self.session_ring and self._tracks_cb is None:
+            cb = lambda *a: self._tracks_offset_changed()
+            self.session_ring.add_offset_listener(cb)
+            self._tracks_cb = cb
+            self.logger.info("Started session ring tracks listener")
+        elif not self.session_ring:
             self.logger.info("Cannot start tracks listener, session_ring is None")
 
     def _stop_tracks_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring is None:
-            return
-        if self.tracks_listener_is_active:
-            self.session_ring.remove_offset_listener(self.tracks_offset_changed)
-            self.tracks_listener_is_active = False
+        if self.session_ring and self._tracks_cb is not None:
+            try:
+                self.session_ring.remove_offset_listener(self._tracks_cb)
+            except Exception:
+                pass
+            self._tracks_cb = None
             self.logger.info("Stopped session ring tracks listener")
 
     def _start_scenes_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring:
-            if not self.scenes_listener_is_active:
-                self.session_ring.add_offset_listener(self.scenes_offset_changed)
-                self.scenes_listener_is_active = True
-                self.logger.info("Started session ring scenes listener")
-        else:
+        if self.session_ring and self._scenes_cb is None:
+            cb = lambda *a: self._scenes_offset_changed()
+            self.session_ring.add_offset_listener(cb)
+            self._scenes_cb = cb
+            self.logger.info("Started session ring scenes listener")
+        elif not self.session_ring:
             self.logger.info("Cannot start scenes listener, session_ring is None")
 
     def _stop_scenes_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring is None:
-            return
-        if self.scenes_listener_is_active:
-            self.session_ring.remove_offset_listener(self.scenes_offset_changed)
-            self.scenes_listener_is_active = False
+        if self.session_ring and self._scenes_cb is not None:
+            try:
+                self.session_ring.remove_offset_listener(self._scenes_cb)
+            except Exception:
+                pass
+            self._scenes_cb = None
             self.logger.info("Stopped session ring scenes listener")
 
     def _start_position_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring:
-            if not self.position_listener_is_active:
-                self.session_ring.add_offset_listener(self.position_changed)
-                self.position_listener_is_active = True
-                self.logger.info("Started session ring position listener")
-        else:
+        if self.session_ring and self._position_cb is None:
+            cb = lambda *a: self._position_changed()
+            self.session_ring.add_offset_listener(cb)
+            self._position_cb = cb
+            self.logger.info("Started session ring position listener")
+        elif not self.session_ring:
             self.logger.info("Cannot start position listener, session_ring is None")
 
     def _stop_position_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring is None:
-            return
-        if self.position_listener_is_active:
-            self.session_ring.remove_offset_listener(self.position_changed)
-            self.position_listener_is_active = False
+        if self.session_ring and self._position_cb is not None:
+            try:
+                self.session_ring.remove_offset_listener(self._position_cb)
+            except Exception:
+                pass
+            self._position_cb = None
             self.logger.info("Stopped session ring position listener")
 
     #--------------------------------------------------------------------------------
     # Offset change callbacks
     #--------------------------------------------------------------------------------
 
-    def tracks_offset_changed(self, *args, **kwargs):
+    def _tracks_offset_changed(self):
         if self.session_ring is None:
-            self.logger.warning("Cannot process callback, session_ring is None")
             return
         track_indexes = tuple(range(self.session_ring.track_offset,
                                     self.session_ring.track_offset + self.session_ring.num_tracks))
         self.osc_server.send("/live/session_ring/get/tracks", track_indexes)
         self.logger.info("Session ring tracks updated: %s" % str(track_indexes))
 
-    def scenes_offset_changed(self, *args, **kwargs):
+    def _scenes_offset_changed(self):
         if self.session_ring is None:
-            self.logger.warning("Cannot process callback, session_ring is None")
             return
         scene_indexes = tuple(range(self.session_ring.scene_offset,
                                     self.session_ring.scene_offset + self.session_ring.num_scenes))
         self.osc_server.send("/live/session_ring/get/scenes", scene_indexes)
         self.logger.info("Session ring scenes updated: %s" % str(scene_indexes))
 
-    def position_changed(self, *args, **kwargs):
+    def _position_changed(self):
         if self.session_ring is None:
-            self.logger.warning("Cannot process callback, session_ring is None")
             return
         position = (self.session_ring.track_offset, self.session_ring.scene_offset)
         self.osc_server.send("/live/session_ring/get/position", position)

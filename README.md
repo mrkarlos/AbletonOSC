@@ -478,8 +478,8 @@ Represents Live SessionRing.
 
 | Address                | Query params                    | Response params | Description                                           |
 |:-----------------------|:--------------------------------|:----------------|:------------------------------------------------------|
-| /live/session_ring/on  | ring_id, num_tracks, num_scenes |                 | Enable the session ring                               |
-| /live/session_ring/off | ring_id                         |                 | Disables the session ring and<br/>stops the listeners |
+| /live/session_ring/on  | num_tracks, num_scenes          |                 | Enable the session ring                               |
+| /live/session_ring/off |                                 |                 | Disables the session ring and<br/>stops the listeners |
 
 
 ### SessionRing properties
