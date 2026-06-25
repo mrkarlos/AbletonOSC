@@ -176,6 +176,8 @@ class DeviceHandler(AbletonOSCHandler):
                             self.logger.error("Parameter %s not found on %s" % (name, expected_class))
                             return None
                         value = param.value
+                    if hasattr(value, '__iter__') and not isinstance(value, str):
+                        return (track_index, device_index, *tuple(value))
                     return (track_index, device_index, value)
 
                 elif action == "set":
