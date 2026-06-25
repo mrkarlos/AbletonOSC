@@ -211,8 +211,7 @@ The following work for any device regardless of class, and are implemented in th
 | `/live/device/get/name` | |
 | `/live/device/get/class_name` | Use this to identify the device class before using class-specific handlers |
 | `/live/device/get/type` | |
-| `/live/device/get/is_active` | Enabled/bypassed state — read/write |
-| `/live/device/set/is_active` | |
+| `/live/device/get/is_active` | Enabled/bypassed state — read-only (Live's Python binding has no setter) |
 | `/live/device/start_listen/is_active` | |
 | `/live/device/stop_listen/is_active` | |
 | `/live/device/get/parameters/name` | Full parameter list — useful for discovering parameter names |
