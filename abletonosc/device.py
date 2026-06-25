@@ -156,7 +156,7 @@ class DeviceHandler(AbletonOSCHandler):
         #--------------------------------------------------------------------------------
         # Device class-specific handlers (from DEVICE_REGISTRY)
         #--------------------------------------------------------------------------------
-        def create_device_class_callback(expected_class, action, name):
+        def create_device_class_callback(expected_class, action, name, member_type):
             def callback(params):
                 track_index, device_index = int(params[0]), int(params[1])
                 device = self.song.tracks[track_index].devices[device_index]
@@ -168,24 +168,24 @@ class DeviceHandler(AbletonOSCHandler):
                 class_path = expected_class.lower()
 
                 if action == "get":
-                    try:
+                    if member_type == "property":
                         value = getattr(device, name)
-                    except AttributeError:
+                    else:
                         param = next((p for p in device.parameters if p.name.lower() == name.lower()), None)
                         if param is None:
-                            self.logger.error("Property %s not found on %s" % (name, expected_class))
+                            self.logger.error("Parameter %s not found on %s" % (name, expected_class))
                             return None
                         value = param.value
                     return (track_index, device_index, value)
 
                 elif action == "set":
                     value = params[2]
-                    try:
+                    if member_type == "property":
                         setattr(device, name, value)
-                    except AttributeError:
+                    else:
                         param = next((p for p in device.parameters if p.name.lower() == name.lower()), None)
                         if param is None:
-                            self.logger.error("Property %s not found on %s" % (name, expected_class))
+                            self.logger.error("Parameter %s not found on %s" % (name, expected_class))
                             return None
                         param.value = value
                     return None
@@ -203,18 +203,17 @@ class DeviceHandler(AbletonOSCHandler):
                     osc_address = "/live/device/%s/get/%s" % (class_path, name)
                     listener_key = ('class_property', expected_class, track_index, device_index, name)
 
-                    try:
-                        _ = getattr(device, name)
+                    if member_type == "property":
                         def get_value():
                             return getattr(device, name)
                         def add_fn(cb):
                             getattr(device, "add_%s_listener" % name)(cb)
                         def remove_fn(cb):
                             getattr(device, "remove_%s_listener" % name)(cb)
-                    except AttributeError:
+                    else:
                         param = next((p for p in device.parameters if p.name.lower() == name.lower()), None)
                         if param is None:
-                            self.logger.error("Property %s not found on %s" % (name, expected_class))
+                            self.logger.error("Parameter %s not found on %s" % (name, expected_class))
                             return None
                         def get_value(p=param):
                             return p.value
@@ -252,33 +251,49 @@ class DeviceHandler(AbletonOSCHandler):
                     return None
 
                 elif action == "introspect_properties":
-                    props = DEVICE_REGISTRY[expected_class]["properties"]
-                    return (track_index, device_index, *props)
+                    return (track_index, device_index, *DEVICE_REGISTRY[expected_class]["properties"].keys())
+
+                elif action == "introspect_parameters":
+                    return (track_index, device_index, *DEVICE_REGISTRY[expected_class]["parameters"].keys())
 
                 elif action == "introspect_functions":
-                    fns = DEVICE_REGISTRY[expected_class]["functions"]
-                    return (track_index, device_index, *fns)
+                    return (track_index, device_index, *DEVICE_REGISTRY[expected_class]["functions"])
 
             return callback
 
         for class_name, class_info in DEVICE_REGISTRY.items():
             class_path = class_name.lower()
 
-            for prop in class_info["properties"]:
-                self.osc_server.add_handler("/live/device/%s/get/%s" % (class_path, prop),
-                    create_device_class_callback(class_name, "get", prop))
-                self.osc_server.add_handler("/live/device/%s/set/%s" % (class_path, prop),
-                    create_device_class_callback(class_name, "set", prop))
-                self.osc_server.add_handler("/live/device/%s/start_listen/%s" % (class_path, prop),
-                    create_device_class_callback(class_name, "start_listen", prop))
-                self.osc_server.add_handler("/live/device/%s/stop_listen/%s" % (class_path, prop),
-                    create_device_class_callback(class_name, "stop_listen", prop))
+            for prop_name, prop_info in class_info["properties"].items():
+                self.osc_server.add_handler("/live/device/%s/get/%s" % (class_path, prop_name),
+                    create_device_class_callback(class_name, "get", prop_name, "property"))
+                if prop_info["access"] == "rw":
+                    self.osc_server.add_handler("/live/device/%s/set/%s" % (class_path, prop_name),
+                        create_device_class_callback(class_name, "set", prop_name, "property"))
+                if prop_info["observable"]:
+                    self.osc_server.add_handler("/live/device/%s/start_listen/%s" % (class_path, prop_name),
+                        create_device_class_callback(class_name, "start_listen", prop_name, "property"))
+                    self.osc_server.add_handler("/live/device/%s/stop_listen/%s" % (class_path, prop_name),
+                        create_device_class_callback(class_name, "stop_listen", prop_name, "property"))
+
+            for param_name, param_info in class_info["parameters"].items():
+                self.osc_server.add_handler("/live/device/%s/get/%s" % (class_path, param_name),
+                    create_device_class_callback(class_name, "get", param_name, "parameter"))
+                if param_info["access"] == "rw":
+                    self.osc_server.add_handler("/live/device/%s/set/%s" % (class_path, param_name),
+                        create_device_class_callback(class_name, "set", param_name, "parameter"))
+                self.osc_server.add_handler("/live/device/%s/start_listen/%s" % (class_path, param_name),
+                    create_device_class_callback(class_name, "start_listen", param_name, "parameter"))
+                self.osc_server.add_handler("/live/device/%s/stop_listen/%s" % (class_path, param_name),
+                    create_device_class_callback(class_name, "stop_listen", param_name, "parameter"))
 
             for fn in class_info["functions"]:
                 self.osc_server.add_handler("/live/device/%s/function/%s" % (class_path, fn),
-                    create_device_class_callback(class_name, "function", fn))
+                    create_device_class_callback(class_name, "function", fn, None))
 
             self.osc_server.add_handler("/live/device/%s/get/properties/name" % class_path,
-                create_device_class_callback(class_name, "introspect_properties", None))
+                create_device_class_callback(class_name, "introspect_properties", None, None))
+            self.osc_server.add_handler("/live/device/%s/get/parameters/name" % class_path,
+                create_device_class_callback(class_name, "introspect_parameters", None, None))
             self.osc_server.add_handler("/live/device/%s/get/functions/name" % class_path,
-                create_device_class_callback(class_name, "introspect_functions", None))
+                create_device_class_callback(class_name, "introspect_functions", None, None))

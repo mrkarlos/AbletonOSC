@@ -40,40 +40,41 @@ Methods callable directly on the device object, e.g. `device.undo()`, `device.cl
 
 ---
 
-## The DEVICE_REGISTRY — Current State and Known Issue
+## The DEVICE_REGISTRY Schema
 
-`abletonosc/device_registry.py`:
-
-```python
-DEVICE_REGISTRY = {
-    "Looper": {
-        "properties": ["state"],       # MISLEADING: state is actually a Parameter
-        "functions": ["undo", "clear"],
-    },
-}
-```
-
-**Known issue:** The registry uses the key `"properties"` for `state`, but `state` on the Looper is a **parameter** (lives in `device.parameters`), not a device property. The current implementation papers over this with a fallback: if `getattr(device, name)` raises `AttributeError`, it searches `device.parameters` by name (case-insensitive). This works, but loses the semantic distinction.
-
-### Recommended future registry shape
-
-To correctly distinguish types, the registry should be expanded to:
+`abletonosc/device_registry.py` uses three top-level keys per device class:
 
 ```python
 DEVICE_REGISTRY = {
     "Looper": {
-        "properties": [],              # Direct LOM properties unique to this class
-        "parameters": ["state"],       # Named parameters (in device.parameters list)
-        "functions": ["undo", "clear"],
+        # Direct LOM properties on the device object (accessed via getattr/setattr).
+        # access "r" = get + start/stop_listen; "rw" = also set.
+        # observable=True: register start/stop_listen via add_<name>_listener.
+        "properties": {
+            "loop_length":          {"access": "r",  "observable": True},
+            "overdub_after_record": {"access": "rw", "observable": True},
+            "record_length_index":  {"access": "rw", "observable": True},
+            "record_length_list":   {"access": "r",  "observable": False},
+            "tempo":                {"access": "r",  "observable": True},
+        },
+        # Items in device.parameters (automation-capable controls).
+        # Looked up by name (case-insensitive). Always observable via param.add_value_listener.
+        # access "r" = get only; "rw" = also set via param.value.
+        "parameters": {
+            "state": {"access": "rw"},  # param name "State"; 0=Stop 1=Record 2=Play 3=Overdub
+        },
+        # Methods callable directly on the device object.
+        "functions": [
+            "clear", "double_speed", "half_speed", "double_length", "half_length",
+            "record", "overdub", "play", "stop", "undo",
+        ],
     },
 }
 ```
 
-With this distinction, the handler factory can:
-- For `"properties"`: use `getattr`/`setattr` + `add_<name>_listener`
-- For `"parameters"`: look up by name in `device.parameters`, use `param.value` + `param.add_value_listener`
-
-The OSC address convention does not need to change — both map to `/live/device/looper/get/<name>`.
+The handler factory (`create_device_class_callback`) takes a `member_type` argument (`"property"` or `"parameter"`) and dispatches explicitly — no runtime probing:
+- **property**: `getattr`/`setattr` + `device.add_<name>_listener`
+- **parameter**: find in `device.parameters` by name (case-insensitive), use `.value` + `param.add_value_listener`
 
 ---
 
@@ -95,16 +96,57 @@ If the device at `(track_id, device_id)` has a different `class_name`, the handl
 
 ### Looper address table
 
+**Parameters** (items in `device.parameters`):
+
 | Address | Args | Reply | Notes |
 |---|---|---|---|
-| `/live/device/looper/get/state` | track_id, device_id | track_id, device_id, state | 0=Stop, 1=Record, 2=Play, 3=Overdub |
+| `/live/device/looper/get/state` | track_id, device_id | track_id, device_id, float | 0=Stop, 1=Record, 2=Play, 3=Overdub |
 | `/live/device/looper/set/state` | track_id, device_id, value | — | |
 | `/live/device/looper/start_listen/state` | track_id, device_id | (immediate push, then on change) | |
 | `/live/device/looper/stop_listen/state` | track_id, device_id | — | |
-| `/live/device/looper/function/undo` | track_id, device_id | — | |
-| `/live/device/looper/function/clear` | track_id, device_id | — | |
-| `/live/device/looper/get/properties/name` | track_id, device_id | track_id, device_id, *names | Introspection |
-| `/live/device/looper/get/functions/name` | track_id, device_id | track_id, device_id, *names | Introspection |
+
+**Properties** (direct LOM attributes):
+
+| Address | Args | Reply | Notes |
+|---|---|---|---|
+| `/live/device/looper/get/loop_length` | track_id, device_id | track_id, device_id, float | Buffer length; read-only |
+| `/live/device/looper/start_listen/loop_length` | track_id, device_id | (immediate push, then on change) | |
+| `/live/device/looper/stop_listen/loop_length` | track_id, device_id | — | |
+| `/live/device/looper/get/tempo` | track_id, device_id | track_id, device_id, float | Buffer tempo; read-only |
+| `/live/device/looper/start_listen/tempo` | track_id, device_id | (immediate push, then on change) | |
+| `/live/device/looper/stop_listen/tempo` | track_id, device_id | — | |
+| `/live/device/looper/get/record_length_list` | track_id, device_id | track_id, device_id, *str | StringVector; read-only, no listener |
+| `/live/device/looper/get/record_length_index` | track_id, device_id | track_id, device_id, int | Chooser index; read-write |
+| `/live/device/looper/set/record_length_index` | track_id, device_id, int | — | |
+| `/live/device/looper/start_listen/record_length_index` | track_id, device_id | (immediate push, then on change) | |
+| `/live/device/looper/stop_listen/record_length_index` | track_id, device_id | — | |
+| `/live/device/looper/get/overdub_after_record` | track_id, device_id | track_id, device_id, bool | read-write |
+| `/live/device/looper/set/overdub_after_record` | track_id, device_id, bool | — | |
+| `/live/device/looper/start_listen/overdub_after_record` | track_id, device_id | (immediate push, then on change) | |
+| `/live/device/looper/stop_listen/overdub_after_record` | track_id, device_id | — | |
+
+**Functions**:
+
+| Address | Args | Reply | Notes |
+|---|---|---|---|
+| `/live/device/looper/function/record` | track_id, device_id | — | Start recording |
+| `/live/device/looper/function/overdub` | track_id, device_id | — | Play + overdub |
+| `/live/device/looper/function/play` | track_id, device_id | — | Play without overdub |
+| `/live/device/looper/function/stop` | track_id, device_id | — | Stop playback |
+| `/live/device/looper/function/undo` | track_id, device_id | — | Erase last overdub layer |
+| `/live/device/looper/function/clear` | track_id, device_id | — | Erase all content |
+| `/live/device/looper/function/double_speed` | track_id, device_id | — | |
+| `/live/device/looper/function/half_speed` | track_id, device_id | — | |
+| `/live/device/looper/function/double_length` | track_id, device_id | — | |
+| `/live/device/looper/function/half_length` | track_id, device_id | — | |
+
+**Introspection**:
+
+| Address | Args | Reply |
+|---|---|---|
+| `/live/device/looper/get/properties/name` | track_id, device_id | track_id, device_id, *names |
+| `/live/device/looper/get/parameters/name` | track_id, device_id | track_id, device_id, *names |
+| `/live/device/looper/get/functions/name` | track_id, device_id | track_id, device_id, *names |
 
 ---
 
@@ -143,15 +185,20 @@ Example — adding Simpler:
 ```python
 DEVICE_REGISTRY = {
     "Looper": { ... },
-    "OriginalSimpler": {       # class_name for Simpler
-        "properties": [],
-        "parameters": ["Volume", "Transpose"],
+    "OriginalSimpler": {       # class_name for Simpler — verify with /live/device/get/class_name
+        "properties": {
+            # Add direct LOM properties here with access and observable flags
+        },
+        "parameters": {
+            "volume":    {"access": "rw"},   # param name "Volume" in device.parameters
+            "transpose": {"access": "rw"},   # param name "Transpose"
+        },
         "functions": ["crop"],
     },
 }
 ```
 
-Note: once the registry distinguishes `"properties"` from `"parameters"`, the factory needs a corresponding update to route each correctly (see "Recommended future registry shape" above).
+Handlers are registered automatically on the next `/live/api/reload`.
 
 ---
 
