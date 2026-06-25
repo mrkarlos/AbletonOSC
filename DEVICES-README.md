@@ -49,8 +49,7 @@ The following addresses work for **any device**, regardless of class. See README
 | /live/device/get/name | track_id, device_id | track_id, device_id, name | Human-readable device name |
 | /live/device/get/class_name | track_id, device_id | track_id, device_id, class_name | Device class (e.g. `Looper`, `Operator`) |
 | /live/device/get/type | track_id, device_id | track_id, device_id, type | 1=audio_effect, 2=instrument, 4=midi_effect |
-| /live/device/get/is_active | track_id, device_id | track_id, device_id, is_active | 1=enabled, 0=bypassed |
-| /live/device/set/is_active | track_id, device_id, is_active | | Enable or bypass the device |
+| /live/device/get/is_active | track_id, device_id | track_id, device_id, is_active | 1=enabled, 0=bypassed; read-only |
 | /live/device/start_listen/is_active | track_id, device_id | | Subscribe to enabled state changes |
 | /live/device/stop_listen/is_active | track_id, device_id | | Unsubscribe |
 

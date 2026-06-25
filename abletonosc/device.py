@@ -37,10 +37,10 @@ class DeviceHandler(AbletonOSCHandler):
         properties_r = [
             "class_name",
             "name",
-            "type"
+            "type",
+            "is_active",
         ]
         properties_rw = [
-            "is_active",
         ]
 
         for method in methods:

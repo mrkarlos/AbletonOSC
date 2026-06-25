@@ -73,16 +73,20 @@ class OSCServer:
                          If None, uses the default remote address.
         """
         msg_builder = OscMessageBuilder(address)
-        for param in params:
-            msg_builder.add_arg(param)
+        try:
+            for param in params:
+                msg_builder.add_arg(param)
+            msg = msg_builder.build()
+        except (BuildError, ValueError):
+            self.logger.error("AbletonOSC: OSC build error: %s" % (traceback.format_exc()))
+            return
 
         try:
-            msg = msg_builder.build()
             if remote_addr is None:
                 remote_addr = self._remote_addr
             self._socket.sendto(msg.dgram, remote_addr)
-        except BuildError:
-            self.logger.error("AbletonOSC: OSC build error: %s" % (traceback.format_exc()))
+        except Exception:
+            self.logger.error("AbletonOSC: Socket send error: %s" % (traceback.format_exc()))
 
     def process_message(self, message, remote_addr):
         if message.address in self._callbacks:

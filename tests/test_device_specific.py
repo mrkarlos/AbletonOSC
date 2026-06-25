@@ -13,11 +13,6 @@ def test_is_active_get(client):
     assert rv[:2] == (LOOPER_TRACK, LOOPER_DEVICE)
     assert rv[2] in (0, 1, True, False)
 
-def test_is_active_set(client):
-    client.send_message("/live/device/set/is_active", [LOOPER_TRACK, LOOPER_DEVICE, 1])
-    wait_one_tick()
-    rv = client.query("/live/device/get/is_active", [LOOPER_TRACK, LOOPER_DEVICE])
-    assert rv[2] in (1, True)
 
 #--------------------------------------------------------------------------------
 # Looper: state (parameter)
