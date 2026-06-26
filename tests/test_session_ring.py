@@ -72,6 +72,8 @@ def test_session_ring_stop_listen_position(client):
     wait_one_tick()
 
     client.send_message("/live/session_ring/start_listen/position", ())
+    client.await_message("/live/session_ring/get/position", TICK_DURATION * 2)  # consume initial value
+
     client.send_message("/live/session_ring/move", (0, 1))
     client.await_message("/live/session_ring/get/position", TICK_DURATION * 2)
 
@@ -80,6 +82,42 @@ def test_session_ring_stop_listen_position(client):
 
     with pytest.raises(RuntimeError):
         client.await_message("/live/session_ring/get/position", TICK_DURATION * 2)
+
+def test_start_listen_position_sends_current_value(client):
+    client.send_message("/live/session_ring/on", (2, 1))
+    wait_one_tick()
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/start_listen/position", ())
+    msg = client.await_message("/live/session_ring/get/position", TICK_DURATION * 2)
+    assert msg == (0, 0)
+
+    client.send_message("/live/session_ring/stop_listen/position", ())
+
+def test_start_listen_tracks_sends_current_value(client):
+    client.send_message("/live/session_ring/on", (2, 1))
+    wait_one_tick()
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/start_listen/tracks", ())
+    msg = client.await_message("/live/session_ring/get/tracks", TICK_DURATION * 2)
+    assert msg == (0, 1)
+
+    client.send_message("/live/session_ring/stop_listen/tracks", ())
+
+def test_start_listen_scenes_sends_current_value(client):
+    client.send_message("/live/session_ring/on", (2, 1))
+    wait_one_tick()
+    client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/session_ring/start_listen/scenes", ())
+    msg = client.await_message("/live/session_ring/get/scenes", TICK_DURATION * 2)
+    assert msg == (0,)
+
+    client.send_message("/live/session_ring/stop_listen/scenes", ())
 
 def test_session_ring_off_is_idempotent(client):
     client.send_message("/live/session_ring/off", ())

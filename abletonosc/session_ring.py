@@ -293,12 +293,14 @@ class SessionRingHandler(AbletonOSCHandler):
     #--------------------------------------------------------------------------------
 
     def _start_tracks_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring and self._tracks_cb is None:
-            cb = lambda *a: self._tracks_offset_changed()
-            self.session_ring.add_offset_listener(cb)
-            self._tracks_cb = cb
-            self.logger.info("Started session ring tracks listener")
-        elif not self.session_ring:
+        if self.session_ring:
+            if self._tracks_cb is None:
+                cb = lambda *a: self._tracks_offset_changed()
+                self.session_ring.add_offset_listener(cb)
+                self._tracks_cb = cb
+                self.logger.info("Started session ring tracks listener")
+            self._tracks_offset_changed()
+        else:
             self.logger.info("Cannot start tracks listener, session_ring is None")
 
     def _stop_tracks_listener(self, params: Tuple[Any] = ()):
@@ -311,12 +313,14 @@ class SessionRingHandler(AbletonOSCHandler):
             self.logger.info("Stopped session ring tracks listener")
 
     def _start_scenes_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring and self._scenes_cb is None:
-            cb = lambda *a: self._scenes_offset_changed()
-            self.session_ring.add_offset_listener(cb)
-            self._scenes_cb = cb
-            self.logger.info("Started session ring scenes listener")
-        elif not self.session_ring:
+        if self.session_ring:
+            if self._scenes_cb is None:
+                cb = lambda *a: self._scenes_offset_changed()
+                self.session_ring.add_offset_listener(cb)
+                self._scenes_cb = cb
+                self.logger.info("Started session ring scenes listener")
+            self._scenes_offset_changed()
+        else:
             self.logger.info("Cannot start scenes listener, session_ring is None")
 
     def _stop_scenes_listener(self, params: Tuple[Any] = ()):
@@ -329,12 +333,14 @@ class SessionRingHandler(AbletonOSCHandler):
             self.logger.info("Stopped session ring scenes listener")
 
     def _start_position_listener(self, params: Tuple[Any] = ()):
-        if self.session_ring and self._position_cb is None:
-            cb = lambda *a: self._position_changed()
-            self.session_ring.add_offset_listener(cb)
-            self._position_cb = cb
-            self.logger.info("Started session ring position listener")
-        elif not self.session_ring:
+        if self.session_ring:
+            if self._position_cb is None:
+                cb = lambda *a: self._position_changed()
+                self.session_ring.add_offset_listener(cb)
+                self._position_cb = cb
+                self.logger.info("Started session ring position listener")
+            self._position_changed()
+        else:
             self.logger.info("Cannot start position listener, session_ring is None")
 
     def _stop_position_listener(self, params: Tuple[Any] = ()):
