@@ -92,7 +92,9 @@ class Manager(ControlSurface):
         self.osc_server.add_handler("/live/api/show_message", show_message_callback)
 
         with self.component_guard():
-            if self.session_ring is None:
+
+            # Permanent session ring owned by the ControlSurface
+            if not hasattr(self, "session_ring") or self.session_ring is None:
                 self.build_session_ring(num_tracks=4, num_scenes=2, is_enabled=False)
 
             self.handlers = [
@@ -154,24 +156,27 @@ class Manager(ControlSurface):
         super().disconnect()
 
     def build_session_ring(self, num_tracks: int, num_scenes: int, is_enabled: bool = False):
+        # clamp here if you want (or keep it in handler)
         with self.component_guard():
-            existing = self.session_ring
+            existing = getattr(self, "session_ring", None)
 
             if existing is not None:
+                # If same size, keep it
                 if existing.num_tracks == num_tracks and existing.num_scenes == num_scenes:
-                    existing.set_enabled(is_enabled)
                     return
 
+                # Tear down old ring cleanly
                 try:
                     existing.set_enabled(False)
                     existing.disconnect()
                 except Exception:
                     logger.error("Unable to disconnect existing Session Ring")
+                    pass
 
-            ring = SessionRingComponent(num_tracks, num_scenes)
-            ring.set_enabled(is_enabled)
-            self.session_ring = ring
-            logger.debug("Created Session Ring tracks=%d scenes=%d" % (num_tracks, num_scenes))
+            # Create the new ring
+            self.session_ring = SessionRingComponent(num_tracks, num_scenes)
+            self.session_ring.set_enabled(is_enabled)
+            logger.debug("Created a Session Ring with tracks: %d, scenes: %d" % (num_tracks, num_scenes))
 
     def build_midi_map(self, midi_map_handle):
         """

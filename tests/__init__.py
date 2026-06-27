@@ -16,6 +16,7 @@ TICK_DURATION = 0.125
 @pytest.fixture(scope="module")
 def client() -> AbletonOSCClient:
     client = AbletonOSCClient()
+    client.verbose = True
     yield client
     client.stop()
 
@@ -23,6 +24,13 @@ def wait_one_tick():
     """
     Sleep for one Ableton Live tick (100ms).
     """
+    time.sleep(TICK_DURATION)
+
+def wait_two_ticks():
+    """
+    Sleep for two Ableton Live tick (100ms).
+    """
+    time.sleep(TICK_DURATION)
     time.sleep(TICK_DURATION)
 
 c = AbletonOSCClient()
