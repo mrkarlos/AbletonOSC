@@ -53,6 +53,9 @@ class ClipHandler(AbletonOSCHandler):
                 track_index, clip_index = int(params[0]), int(params[1])
                 track = self.song.tracks[track_index]
                 clip = track.clip_slots[clip_index].clip
+                if clip is None:
+                    self.logger.warning("No clip at track %d slot %d" % (track_index, clip_index))
+                    return
                 if pass_clip_index:
                     rv = func(clip, *args, tuple(params[0:]))
                 else:
