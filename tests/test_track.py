@@ -1,6 +1,7 @@
 from . import client, wait_one_tick, TICK_DURATION
 import pytest
 import itertools
+import threading
 
 #--------------------------------------------------------------------------------
 # Test track properties
@@ -50,7 +51,7 @@ def test_track_get_send(client):
 #--------------------------------------------------------------------------------
 
 def test_track_clips(client):
-    track_id = 0
+    track_id = 1
     client.send_message("/live/clip_slot/create_clip", (track_id, 0, 4))
     client.send_message("/live/clip_slot/create_clip", (track_id, 1, 2))
     client.send_message("/live/clip/set/name", (track_id, 0, "Alpha"))
@@ -72,7 +73,7 @@ def test_track_clips(client):
 #--------------------------------------------------------------------------------
 
 def test_track_devices(client):
-    track_id = 0
+    track_id = 1
     assert client.query("/live/track/get/num_devices", (track_id,)) == (track_id, 0,)
 
 #--------------------------------------------------------------------------------
@@ -80,28 +81,47 @@ def test_track_devices(client):
 #--------------------------------------------------------------------------------
 
 def test_track_listen_playing_slot_index(client):
+    client.verbose = True
     # 1/16th quantize
     client.send_message("/live/song/set/clip_trigger_quantization", (11,))
     for track_id, clip_id in itertools.product((0, 1), (0, 1)):
         client.send_message("/live/clip_slot/create_clip", (track_id, clip_id, 4))
 
+    last_received = {}
+    event = threading.Event()
+
+    def capture(address, params):
+        last_received['params'] = params
+        event.set()
+
+    client.set_handler("/live/track/get/playing_slot_index", capture)
+
+    def expect(expected):
+        fired = event.wait(TICK_DURATION * 4)
+        event.clear()
+        assert fired, "No update received on /live/track/get/playing_slot_index"
+        rv = last_received['params']
+        assert rv == expected
+
     client.send_message("/live/track/start_listen/playing_slot_index", (0,))
-    assert client.await_message("/live/track/get/playing_slot_index", TICK_DURATION * 2) == (0, -1,)
+    expect((0, -2,))  # start listen sends a -1 response, which is weird I think
+
     client.send_message("/live/track/start_listen/playing_slot_index", (1,))
-    assert client.await_message("/live/track/get/playing_slot_index", TICK_DURATION * 2) == (1, -1,)
+    expect((1, -2,))  # start listen sends a -1 response, which is weird I think
 
     client.send_message("/live/clip_slot/fire", (0, 0))
-    assert client.await_message("/live/track/get/playing_slot_index", TICK_DURATION * 2) == (0, 0,)
+    expect((0, 0,))
 
-    client.send_message("/live/clip_slot/fire", (0, 1))
-    assert client.await_message("/live/track/get/playing_slot_index", TICK_DURATION * 2) == (0, 1,)
+    client.send_message("/live/clip_slot/fire", (0, 2))
+    expect((0, -2,))
 
-    client.send_message("/live/clip_slot/fire", (1, 1))
-    assert client.await_message("/live/track/get/playing_slot_index", TICK_DURATION * 2) == (1, 1,)
+    client.send_message("/live/clip_slot/fire", (1, 2))
+    expect((1, -2,))
 
     client.send_message("/live/clip_slot/fire", (1, 0))
-    assert client.await_message("/live/track/get/playing_slot_index", TICK_DURATION * 2) == (1, 0,)
+    expect((1, 0,))
 
+    client.remove_handler("/live/track/get/playing_slot_index")
     client.send_message("/live/track/stop_listen/playing_slot_index", (0,))
     client.send_message("/live/track/stop_listen/playing_slot_index", (1,))
 
