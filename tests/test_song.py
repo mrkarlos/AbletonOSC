@@ -75,6 +75,30 @@ def test_song_listen_tempo(client):
 
     client.send_message("/live/song/stop_listen/tempo")
 
+def test_song_listen_tracks(client):
+    client.send_message("/live/song/start_listen/tracks")
+    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 2)) == 4
+
+    client.send_message("/live/song/create_midi_track", [-1])
+    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 4)) == 5
+
+    client.send_message("/live/song/delete_track", [4])
+    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 4)) == 4
+
+    client.send_message("/live/song/stop_listen/tracks")
+
+def test_song_listen_scenes(client):
+    client.send_message("/live/song/start_listen/scenes")
+    assert len(client.await_message("/live/song/get/scenes", TICK_DURATION * 2)) == 8
+
+    client.send_message("/live/song/create_scene", [-1])
+    assert len(client.await_message("/live/song/get/scenes", TICK_DURATION * 4)) == 9
+
+    client.send_message("/live/song/delete_scene", [8])
+    assert len(client.await_message("/live/song/get/scenes", TICK_DURATION * 4)) == 8
+
+    client.send_message("/live/song/stop_listen/scenes")
+
 #--------------------------------------------------------------------------------
 # Test song properties
 #--------------------------------------------------------------------------------

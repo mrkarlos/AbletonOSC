@@ -107,6 +107,11 @@ class SongHandler(AbletonOSCHandler):
                     track_index_max = len(self.song.tracks)
             return tuple(self.song.tracks[index].name for index in range(track_index_min, track_index_max))
         self.osc_server.add_handler("/live/song/get/track_names", song_get_track_names)
+        self.osc_server.add_handler("/live/song/get/tracks", song_get_track_names)
+        self.osc_server.add_handler("/live/song/start_listen/tracks",
+                                     partial(self._start_listen, self.song, "tracks", getter=song_get_track_names))
+        self.osc_server.add_handler("/live/song/stop_listen/tracks",
+                                     partial(self._stop_listen, self.song, "tracks"))
 
         def song_get_track_data(params):
             """
@@ -234,6 +239,11 @@ class SongHandler(AbletonOSCHandler):
                 scene_index_min, scene_index_max = params
             return tuple(self.song.scenes[index].name for index in range(scene_index_min, scene_index_max))
         self.osc_server.add_handler("/live/song/get/scenes/name", song_get_scene_names)
+        self.osc_server.add_handler("/live/song/get/scenes", song_get_scene_names)
+        self.osc_server.add_handler("/live/song/start_listen/scenes",
+                                     partial(self._start_listen, self.song, "scenes", getter=song_get_scene_names))
+        self.osc_server.add_handler("/live/song/stop_listen/scenes",
+                                     partial(self._stop_listen, self.song, "scenes"))
 
         #--------------------------------------------------------------------------------
         # Callbacks for Song: Cue point properties
