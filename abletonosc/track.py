@@ -7,6 +7,19 @@ class TrackHandler(AbletonOSCHandler):
         super().__init__(manager)
         self.class_identifier = "track"
 
+    def clear_api(self):
+        #--------------------------------------------------------------------------------
+        # Mixer listeners (volume, panning) are managed separately from listener_objects
+        # (see _start_mixer_listen), so stop them explicitly before the base class's
+        # _clear_listeners() runs over listener_functions.
+        #--------------------------------------------------------------------------------
+        for listener_key in list(self.listener_functions.keys()):
+            prop, params = listener_key
+            if prop in ("volume", "panning"):
+                track = self.song.tracks[params[0]]
+                self._stop_mixer_listen(track, prop, params)
+        super().clear_api()
+
     def init_api(self):
         def create_track_callback(func: Callable,
                                   *args,

@@ -111,6 +111,16 @@ class AbletonOSCHandler(Component):
         Clears all listener functions, to prevent listeners continuing to report after a reload.
         """
         for listener_key in list(self.listener_functions.keys())[:]:
+            if listener_key not in self.listener_objects:
+                #--------------------------------------------------------------------------------
+                # Defensive: a listener registered via a non-standard path (e.g. track.py's
+                # mixer listeners) may populate listener_functions without listener_objects.
+                # Skip it rather than letting a KeyError here abort clear_api() for every
+                # other handler and leave the OSC server with no registered addresses.
+                #--------------------------------------------------------------------------------
+                self.logger.warning("No listener object found for %s; skipping" % str(listener_key))
+                del self.listener_functions[listener_key]
+                continue
             target = self.listener_objects[listener_key]
             prop, params = listener_key
             self._stop_listen(target, prop, params)
