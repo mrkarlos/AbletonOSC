@@ -165,6 +165,8 @@ for [Live Object Model - Song](https://docs.cycling74.com/max8/vignettes/live_ob
 | /live/song/get/num_scenes  |              | num_scenes             | Query the number of scenes                                                  |
 | /live/song/get/num_tracks  |              | num_tracks             | Query the number of tracks                                                  |
 | /live/song/get/track_names |              | [index_min, index_max] | Query track names (optionally, over a given range)                          |
+| /live/song/get/tracks      |              | name, name, ...        | Query all track names in their current order                               |
+| /live/song/get/scenes      |              | name, name, ...        | Query all scene names in their current order                                |
 | /live/song/get/track_data  |              | [various]              | Query bulk properties of multiple tracks/clips. See below for further info. |
 
 
@@ -190,6 +192,17 @@ Queries tracks 0..11, and returns a long list of values comprising:
 ### Beat events
 
 To request a status message to be sent to the client on each beat, call `/live/song/start_listen/beat`. Every beat, a reply will be sent to `/live/song/get/beat`, with an int parameter containing the current beat number. To stop listening for beat events, call `/live/song/stop_listen/beat`.
+
+### Track and scene order changes
+
+To be notified whenever tracks or scenes are added, deleted, or reordered, call `/live/song/start_listen/tracks` (or `.../scenes`). A reply is sent immediately with the current state, and again every time it changes, to `/live/song/get/tracks` (or `.../scenes`), containing the full list of track (or scene) names in their current order. Call `/live/song/stop_listen/tracks` / `.../scenes` to stop.
+
+| Address                          | Query params | Response params | Description                                             |
+|:----------------------------------|:-------------|:-----------------|:---------------------------------------------------------|
+| /live/song/start_listen/tracks   |              |                  | Start listening; replies sent to `.../get/tracks`        |
+| /live/song/stop_listen/tracks    |              |                  | Stop listening for track list changes                    |
+| /live/song/start_listen/scenes   |              |                  | Start listening; replies sent to `.../get/scenes`        |
+| /live/song/stop_listen/scenes    |              |                  | Stop listening for scene list changes                    |
 
 </details>
 
