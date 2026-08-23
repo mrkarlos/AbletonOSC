@@ -104,22 +104,25 @@ def test_track_listen_playing_slot_index(client):
         assert rv == expected
 
     client.send_message("/live/track/start_listen/playing_slot_index", (0,))
-    expect((0, -2,))  # start listen sends a -1 response, which is weird I think
+    expect((0, -1,))  # -1 = nothing playing/queued yet
 
     client.send_message("/live/track/start_listen/playing_slot_index", (1,))
-    expect((1, -2,))  # start listen sends a -1 response, which is weird I think
+    expect((1, -1,))  # -1 = nothing playing/queued yet
 
     client.send_message("/live/clip_slot/fire", (0, 0))
     expect((0, 0,))
 
-    client.send_message("/live/clip_slot/fire", (0, 2))
+    # Firing an empty clip slot just reports that slot's own (positive) index -- it does
+    # not queue a "stop" (-2). -2 is specific to the dedicated Stop Clip control, exposed
+    # as Track.stop_all_clips() / /live/track/stop_all_clips.
+    client.send_message("/live/track/stop_all_clips", (0,))
     expect((0, -2,))
-
-    client.send_message("/live/clip_slot/fire", (1, 2))
-    expect((1, -2,))
 
     client.send_message("/live/clip_slot/fire", (1, 0))
     expect((1, 0,))
+
+    client.send_message("/live/track/stop_all_clips", (1,))
+    expect((1, -2,))
 
     client.remove_handler("/live/track/get/playing_slot_index")
     client.send_message("/live/track/stop_listen/playing_slot_index", (0,))

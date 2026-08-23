@@ -50,6 +50,13 @@ pytest tests/
 Importing the `tests` package sends `/live/api/reload` as a side effect, so
 each test run picks up the latest handler code without restarting Live.
 
+Importing the `tests` package also checks the song shape over OSC (track
+count, and that track 0 / device 0 is a Looper) and aborts the run
+immediately with a clear message if it doesn't match, rather than letting an
+unprepped set surface as a wall of unrelated failures. This can only check
+what's visible over OSC — it can't verify the Count-In or default audio
+device prerequisites above, since those aren't exposed via the Live API.
+
 ## Which tier does a new test belong in?
 
 - Does it call into `Live.*` objects, or assert on the result of a real OSC

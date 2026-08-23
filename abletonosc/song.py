@@ -168,6 +168,58 @@ class SongHandler(AbletonOSCHandler):
         self.osc_server.add_handler("/live/song/get/track_data", song_get_track_data)
 
 
+        def song_find_tracks(params):
+            """
+            Find tracks whose name contains name_pattern (case-insensitive substring match).
+
+            Track names are user-mutable and change across song reloads, so this is intended
+            as a best-effort lookup, e.g. to feed a track_index into /live/track/find_devices.
+
+                /live/song/find_tracks Guitar
+
+            Returns a flat list of (track_index, track_name) pairs for every match.
+            """
+            name_pattern, = params
+            name_pattern = str(name_pattern).lower()
+            rv = []
+            for track_index, track in enumerate(self.song.tracks):
+                if name_pattern in track.name.lower():
+                    rv.append(track_index)
+                    rv.append(track.name)
+            return tuple(rv)
+        self.osc_server.add_handler("/live/song/find_tracks", song_find_tracks)
+
+        def song_find_devices(params):
+            """
+            Find devices across all tracks matching class_name exactly, optionally narrowed
+            by a case-insensitive substring match against track name and/or device name.
+
+            Device class_name (e.g. "Looper") is the only identifier that survives renames,
+            so it's the required filter; track_name_pattern/device_name_pattern are optional
+            disambiguators for sets containing more than one device of the same class.
+
+                /live/song/find_devices Looper
+                /live/song/find_devices Looper Guitar
+                /live/song/find_devices Looper Guitar "Looper 2"
+
+            Returns a flat list of (track_index, device_index, track_name, device_name) quads.
+            """
+            class_name, *rest = params
+            track_name_pattern = str(rest[0]).lower() if len(rest) > 0 and rest[0] else ""
+            device_name_pattern = str(rest[1]).lower() if len(rest) > 1 and rest[1] else ""
+            rv = []
+            for track_index, track in enumerate(self.song.tracks):
+                if track_name_pattern and track_name_pattern not in track.name.lower():
+                    continue
+                for device_index, device in enumerate(track.devices):
+                    if device.class_name != class_name:
+                        continue
+                    if device_name_pattern and device_name_pattern not in device.name.lower():
+                        continue
+                    rv.extend((track_index, device_index, track.name, device.name))
+            return tuple(rv)
+        self.osc_server.add_handler("/live/song/find_devices", song_find_devices)
+
         def song_export_structure(params):
             tracks = []
             for track_index, track in enumerate(self.song.tracks):

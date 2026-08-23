@@ -175,6 +175,29 @@ class TrackHandler(AbletonOSCHandler):
         self.osc_server.add_handler("/live/track/get/devices/class_name", create_track_callback(track_get_device_class_names))
         self.osc_server.add_handler("/live/track/get/devices/can_have_chains", create_track_callback(track_get_device_can_have_chains))
 
+        def track_find_devices(track, params: Tuple[Any] = ()):
+            """
+            Find devices on this track matching class_name exactly, optionally narrowed by a
+            case-insensitive substring match against device name (for sets with more than one
+            device of the same class, e.g. two Loopers on one track).
+
+                /live/track/find_devices 0 Looper
+                /live/track/find_devices 0 Looper "Guitar"
+
+            Returns a flat list of (device_index, device_name) pairs for every match.
+            """
+            class_name, *rest = params
+            device_name_pattern = str(rest[0]).lower() if len(rest) > 0 and rest[0] else ""
+            rv = []
+            for device_index, device in enumerate(track.devices):
+                if device.class_name != class_name:
+                    continue
+                if device_name_pattern and device_name_pattern not in device.name.lower():
+                    continue
+                rv.extend((device_index, device.name))
+            return tuple(rv)
+        self.osc_server.add_handler("/live/track/find_devices", create_track_callback(track_find_devices))
+
         #--------------------------------------------------------------------------------
         # Track: Output routing.
         # An output route has a type (e.g. "Ext. Out") and a channel (e.g. "1/2").
