@@ -85,6 +85,16 @@ class OSCServer:
             if remote_addr is None:
                 remote_addr = self._remote_addr
             self._socket.sendto(msg.dgram, remote_addr)
+        except socket.error as e:
+            if e.errno == errno.ECONNRESET:
+                #--------------------------------------------------------------------------------
+                # This benign error seems to occur on Windows (WSAECONNRESET) when a previous
+                # sendto() targeted a remote port that's since become unreachable. Mirrors the
+                # same handling already applied to ECONNRESET on the recvfrom() side in process().
+                #--------------------------------------------------------------------------------
+                self.logger.warning("AbletonOSC: Non-fatal socket send error: %s" % (traceback.format_exc()))
+            else:
+                self.logger.error("AbletonOSC: Socket send error: %s" % (traceback.format_exc()))
         except Exception:
             self.logger.error("AbletonOSC: Socket send error: %s" % (traceback.format_exc()))
 
