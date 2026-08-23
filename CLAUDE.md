@@ -8,21 +8,25 @@ AbletonOSC is an Ableton Live MIDI remote script that exposes Live's Python API 
 
 ## Running tests
 
-Tests require Ableton Live to be running with a blank default set. From the `AbletonOSC` directory:
+The test suite has two tiers — see `TESTING.md` for the full picture:
+
+- `tests_unit/` — pure Python, no Live required (e.g. `osc_server.py` socket error handling).
+- `tests/` — integration tests, require Ableton Live running with a blank default set.
 
 ```bash
-pytest                          # all tests
-pytest tests/test_session_ring.py  # single test file
+pytest tests_unit/               # unit tests, no Live needed
+pytest                            # everything (Live must be running for tests/)
+pytest tests/test_session_ring.py  # single integration test file
 pytest tests/test_song.py::test_function_name  # single test
 ```
 
-**Prerequisites before running tests:**
+**Prerequisites before running the `tests/` integration suite:**
 - Live must be started with a blank default set
 - Live must have default audio input/output devices configured
 - In `Preferences > Record, Warp & Launch`, set `Count-In` to `None`
 - AbletonOSC must be selected as the Control Surface in Live's MIDI preferences
 
-The `tests/__init__.py` sends `/live/api/reload` on import, which hot-reloads the handler code before each test module runs.
+The `tests/__init__.py` sends `/live/api/reload` on import, which hot-reloads the handler code before each integration test module runs. `tests_unit/` is a separate top-level package specifically so importing it never triggers this Live-oriented setup.
 
 ## Live reloading during development
 

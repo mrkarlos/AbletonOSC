@@ -2,17 +2,9 @@
 
 ## Tests
 
-For unit tests to pass:
-
-- Live must be configured with default audio input and output devices, and
-- Live must be started with a blank default set, and
-- In `Preferences > Record, Warp & Launch`, `Count-In` must be set to `None` (for recording test clips)
-
-To run unit tests, `pip3 install pytest`, start Live, change to the `AbletonOSC` directory, and run:
-
-```
-pytest
-```
+See [TESTING.md](TESTING.md) for the full testing approach, including the
+distinction between unit tests (no Live required) and integration tests
+(require a running Live instance) and how to run each.
 
 ## Live reloading
 
