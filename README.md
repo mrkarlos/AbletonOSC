@@ -189,6 +189,25 @@ Queries tracks 0..11, and returns a long list of values comprising:
  track_1_name, clip_1_0_name,   clip_1_1_name,   ... clip_1_7_name, ...]
 ```
 
+### Finding tracks and devices by name/class
+
+Addresses like `/live/track/get/...` and `/live/device/get/...` identify a track/device by numeric index, which is fragile: indices shift whenever tracks are reordered or a set is reloaded, and track/device names are freely renamed by the user. `find_tracks` and `find_devices` let a client resolve the current index of a track or device from a more stable clue instead of hardcoding one.
+
+| Address                    | Query params                                                | Response params                                          | Description                                                                        |
+|:----------------------------|:-------------------------------------------------------------|:-----------------------------------------------------------|:-------------------------------------------------------------------------------------|
+| /live/song/find_tracks      | name_pattern                                                  | [track_index, track_name, ...]                            | Find tracks whose name contains `name_pattern` (case-insensitive substring match)  |
+| /live/song/find_devices     | class_name, [track_name_pattern], [device_name_pattern]       | [track_index, device_index, track_name, device_name, ...] | Find devices anywhere in the song matching `class_name` exactly, optionally narrowed by track/device name substring |
+
+`class_name` (e.g. `"Looper"`) is the only identifier that survives track/device renames, so it's the required filter for `find_devices`; the name-pattern args are optional disambiguators for sets containing more than one device of the same class. Both calls return every match, flattened; an empty reply means no matches. See also `/live/track/find_devices` in the [Track API](#track-api) for scoping a device search to a track you've already resolved (e.g. via `find_tracks`).
+
+For example, to locate a guitar track's Looper without hardcoding indices:
+```
+/live/song/find_tracks Guitar
+-> (2, "Guitar")
+/live/track/find_devices 2 Looper
+-> (2, 0, "Looper")
+```
+
 ### Beat events
 
 To request a status message to be sent to the client on each beat, call `/live/song/start_listen/beat`. Every beat, a reply will be sent to `/live/song/get/beat`, with an int parameter containing the current beat number. To stop listening for beat events, call `/live/song/stop_listen/beat`.
@@ -328,8 +347,9 @@ To query the properties of multiple tracks, see [Song: Properties of cue points,
 | /live/track/get/devices/name       | track_id     | track_id, [name, ...]  | Query all device names on track          |
 | /live/track/get/devices/type       | track_id     | track_id, [type, ...]  | Query all devices types on track         |
 | /live/track/get/devices/class_name | track_id     | track_id, [class, ...] | Query all device class names on track    |
+| /live/track/find_devices           | track_id, class_name, [device_name_pattern] | track_id, [device_index, device_name, ...] | Find devices on this track matching `class_name` exactly, optionally narrowed by a device-name substring |
 
-See [Device API](#device-api) for details on Device type/class_names.
+See [Device API](#device-api) for details on Device type/class_names, and [Finding tracks and devices by name/class](#finding-tracks-and-devices-by-nameclass) for the companion `/live/song/find_tracks` / `/live/song/find_devices` calls.
  
 </details>
 

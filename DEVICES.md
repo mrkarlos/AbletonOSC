@@ -94,6 +94,17 @@ Class name is lowercased in the path (matches `/live/clip/...`, `/live/track/...
 
 If the device at `(track_id, device_id)` has a different `class_name`, the handler logs an error and returns no OSC reply.
 
+### Resolving `(track_id, device_id)` by class_name
+
+Every address above needs a `(track_id, device_id)` pair, but hardcoding one is fragile: it breaks the moment a track is reordered, a device is moved, or a set is reloaded from a template with a different layout. Rather than hardcoding indices (or a track/device name, which the user can rename), resolve them at runtime from the device's `class_name` — the one identifier that survives renames — via `/live/song/find_devices` (global) or `/live/track/find_devices` (scoped to a known track), documented in `README.md`'s [Song API](README.md#finding-tracks-and-devices-by-nameclass). For example:
+
+```
+/live/song/find_devices Looper
+-> (2, 0, "Guitar", "Looper")   # track_index, device_index, track_name, device_name
+```
+
+Use the returned `(track_index, device_index)` as the `track_id, device_id` pair for any of the class-specific addresses above. Re-resolve after a song reload rather than caching indices indefinitely.
+
 ### Looper address table
 
 **Parameters** (items in `device.parameters`):
