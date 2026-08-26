@@ -31,10 +31,22 @@ def _create_test_clips(client):
 #--------------------------------------------------------------------------------
 
 def _test_clip_property(client, track_id, clip_id, property, values):
-    for value in values:
-        client.send_message("/live/clip/set/%s" % property, (track_id, clip_id, value))
+    #--------------------------------------------------------------------------------
+    # Restore the pre-test value afterwards, so running the suite repeatedly against
+    # the same loaded Set doesn't leave clip properties drifted from run to run.
+    # (Not strictly necessary for clips created and deleted within this module's
+    # fixture, but keeps the pattern consistent with _test_track_property/
+    # _test_song_property in case this clip ever outlives a single test run.)
+    #--------------------------------------------------------------------------------
+    original_value = client.query("/live/clip/get/%s" % property, (track_id, clip_id))[2]
+    try:
+        for value in values:
+            client.send_message("/live/clip/set/%s" % property, (track_id, clip_id, value))
+            wait_one_tick()
+            assert client.query("/live/clip/get/%s" % property, (track_id, clip_id)) == (track_id, clip_id, value,)
+    finally:
+        client.send_message("/live/clip/set/%s" % property, (track_id, clip_id, original_value))
         wait_one_tick()
-        assert client.query("/live/clip/get/%s" % property, (track_id, clip_id)) == (track_id, clip_id, value,)
 
 def test_clip_property_name(client):
     _test_clip_property(client, 0, 0, "name", ("Alpha", "Beta"))
@@ -138,6 +150,8 @@ def test_clip_playing_position_listen(client):
     assert rv[2] > 0
 
     client.send_message("/live/clip/stop_listen/playing_position", (0, 0))
+    client.send_message("/live/song/stop_playing")
+    wait_one_tick()
 
 def test_clip_listen_lifecycle(client):
     client.send_message("/live/clip/set/name", [0, 0, "Alpha"])

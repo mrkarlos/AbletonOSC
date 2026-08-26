@@ -8,11 +8,21 @@ import threading
 #--------------------------------------------------------------------------------
 
 def _test_track_property(client, track_id, property, values):
-    for value in values:
-        print("Testing property %s, value: %s" % (property, value))
-        client.send_message("/live/track/set/%s" % property, [track_id, value])
+    #--------------------------------------------------------------------------------
+    # Restore the pre-test value afterwards, so running the suite repeatedly against
+    # the same loaded Set doesn't leave track properties (name, color, ...) drifted
+    # from run to run.
+    #--------------------------------------------------------------------------------
+    original_value = client.query("/live/track/get/%s" % property, [track_id])[1]
+    try:
+        for value in values:
+            print("Testing property %s, value: %s" % (property, value))
+            client.send_message("/live/track/set/%s" % property, [track_id, value])
+            wait_one_tick()
+            assert client.query("/live/track/get/%s" % property, [track_id]) == (track_id, value,)
+    finally:
+        client.send_message("/live/track/set/%s" % property, [track_id, original_value])
         wait_one_tick()
-        assert client.query("/live/track/get/%s" % property, [track_id]) == (track_id, value,)
 
 def test_track_property_panning(client):
     _test_track_property(client, 2, "panning", [0.5, 0.0])
@@ -41,10 +51,15 @@ def test_track_get_send(client):
     track_id = 2
     send_id = 1
 
-    for value in [0.5, 0.0]:
-        client.send_message("/live/track/set/send", [track_id, send_id, value])
+    original_value = client.query("/live/track/get/send", (track_id, send_id))[2]
+    try:
+        for value in [0.5, 0.0]:
+            client.send_message("/live/track/set/send", [track_id, send_id, value])
+            wait_one_tick()
+            assert client.query("/live/track/get/send", (track_id, send_id)) == (track_id, send_id, value,)
+    finally:
+        client.send_message("/live/track/set/send", [track_id, send_id, original_value])
         wait_one_tick()
-        assert client.query("/live/track/get/send", (track_id, send_id)) == (track_id, send_id, value,)
 
 #--------------------------------------------------------------------------------
 # Test track properties - clips
@@ -83,6 +98,7 @@ def test_track_devices(client):
 def test_track_listen_playing_slot_index(client):
     client.verbose = True
     # 1/16th quantize
+    original_quantization = client.query("/live/song/get/clip_trigger_quantization")[0]
     client.send_message("/live/song/set/clip_trigger_quantization", (11,))
     for track_id, clip_id in itertools.product((0, 1), (0, 1)):
         client.send_message("/live/clip_slot/create_clip", (track_id, clip_id, 4))
@@ -130,6 +146,8 @@ def test_track_listen_playing_slot_index(client):
 
     for track_id, clip_id in itertools.product((0, 1), (0, 1)):
         client.send_message("/live/clip_slot/delete_clip", (track_id, clip_id))
+
+    client.send_message("/live/song/set/clip_trigger_quantization", (original_quantization,))
 
 #--------------------------------------------------------------------------------
 # Test track properties - Group tracks

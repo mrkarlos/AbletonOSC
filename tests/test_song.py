@@ -122,10 +122,19 @@ def test_song_listen_cue_points(client):
 #--------------------------------------------------------------------------------
 
 def _test_song_property(client, property, values):
-    for value in values:
-        client.send_message("/live/song/set/%s" % property, [value])
+    #--------------------------------------------------------------------------------
+    # Restore the pre-test value afterwards, so running the suite repeatedly against
+    # the same loaded Set doesn't leave song properties drifted from run to run.
+    #--------------------------------------------------------------------------------
+    original_value = client.query("/live/song/get/%s" % property)[0]
+    try:
+        for value in values:
+            client.send_message("/live/song/set/%s" % property, [value])
+            wait_one_tick()
+            assert client.query("/live/song/get/%s" % property) == (value,)
+    finally:
+        client.send_message("/live/song/set/%s" % property, [original_value])
         wait_one_tick()
-        assert client.query("/live/song/get/%s" % property) == (value,)
 
 def test_song_property_arrangement_overdub(client):
     _test_song_property(client, "arrangement_overdub", [1, 0])
