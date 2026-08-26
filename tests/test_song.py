@@ -99,6 +99,22 @@ def test_song_listen_scenes(client):
 
     client.send_message("/live/song/stop_listen/scenes")
 
+def test_song_listen_cue_points(client):
+    client.send_message("/live/song/set/current_song_time", [0])
+    initial_cue_points = client.query("/live/song/get/cue_points")
+
+    client.send_message("/live/song/start_listen/cue_points")
+    assert client.await_message("/live/song/get/cue_points", TICK_DURATION * 2) == initial_cue_points
+
+    client.send_message("/live/song/cue_point/add_or_delete")
+    cue_points_with_new = client.await_message("/live/song/get/cue_points", TICK_DURATION * 4)
+    assert len(cue_points_with_new) == len(initial_cue_points) + 2
+
+    client.send_message("/live/song/cue_point/add_or_delete")
+    assert client.await_message("/live/song/get/cue_points", TICK_DURATION * 4) == initial_cue_points
+
+    client.send_message("/live/song/stop_listen/cue_points")
+
 #--------------------------------------------------------------------------------
 # Test song properties
 #--------------------------------------------------------------------------------

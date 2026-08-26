@@ -305,6 +305,11 @@ class SongHandler(AbletonOSCHandler):
             cue_point_pairs = [(cue_point.name, cue_point.time) for cue_point in cue_points]
             return tuple(element for pair in cue_point_pairs for element in pair)
         self.osc_server.add_handler("/live/song/get/cue_points", partial(song_get_cue_points, self.song))
+        self.osc_server.add_handler("/live/song/start_listen/cue_points",
+                                     partial(self._start_listen, self.song, "cue_points",
+                                             getter=partial(song_get_cue_points, self.song)))
+        self.osc_server.add_handler("/live/song/stop_listen/cue_points",
+                                     partial(self._stop_listen, self.song, "cue_points"))
 
         def song_jump_to_cue_point(song, params: Tuple[Any] = ()):
             cue_point_index = params[0]
