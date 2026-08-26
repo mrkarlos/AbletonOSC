@@ -60,10 +60,11 @@ def _check_environment():
             )
             return
 
-        if num_tracks != 4:
+        if num_tracks != 7:
             pytest.exit(
-                "Test song has %d track(s), expected 4. Load the blank default set described "
-                "in TESTING.md before running the integration suite." % num_tracks,
+                "Test song has %d track(s), expected 7 (4 regular tracks, a Group track, and "
+                "the Group's 2 child tracks). Load the blank default set described in "
+                "TESTING.md before running the integration suite." % num_tracks,
                 returncode=1,
             )
 
@@ -77,6 +78,19 @@ def _check_environment():
                 "Expected a Looper device at track 0, device 0 (found %r instead). The "
                 "device-specific and find_* integration tests assume this -- add a Looper "
                 "there and re-save it as the default set (see TESTING.md)." % device_class_name,
+                returncode=1,
+            )
+
+        try:
+            group_track_is_foldable = client.query("/live/track/get/is_foldable", (4,), timeout=2.0)[1]
+        except RuntimeError:
+            group_track_is_foldable = None
+
+        if not group_track_is_foldable:
+            pytest.exit(
+                "Expected track 4 to be a Group track (is_foldable == True), found %r instead. "
+                "The arm-on-Group-track integration test assumes this -- group two tracks and "
+                "re-save it as the default set (see TESTING.md)." % group_track_is_foldable,
                 returncode=1,
             )
     finally:

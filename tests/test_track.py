@@ -130,3 +130,37 @@ def test_track_listen_playing_slot_index(client):
 
     for track_id, clip_id in itertools.product((0, 1), (0, 1)):
         client.send_message("/live/clip_slot/delete_clip", (track_id, clip_id))
+
+#--------------------------------------------------------------------------------
+# Test track properties - Group tracks
+#--------------------------------------------------------------------------------
+
+def test_track_listen_arm_group_track_graceful(client):
+    """
+    Group tracks (like Master/Return tracks) have no Arm state. Live raises a
+    RuntimeError from add_arm_listener/remove_arm_listener when queried on one
+    ("Main and Return Tracks have no 'Arm' state!" -- the same message Live uses
+    for any track without an Arm state, not just literal Master/Return tracks).
+
+    This should be handled gracefully -- logged and skipped -- rather than raise
+    an unhandled exception that reaches osc_server's generic error handler.
+    See track.py's track_callback.
+    """
+    group_track_id = 4
+
+    assert client.query("/live/track/get/can_be_armed", (group_track_id,)) == (group_track_id, False)
+
+    # get/arm is already handled gracefully by the generic _get_property, which catches
+    # RuntimeError and returns None.
+    assert client.query("/live/track/get/arm", (group_track_id,)) == (group_track_id, None)
+
+    # start_listen/arm must not crash the OSC server, and must not register a listener
+    # (since the underlying add_arm_listener call raises).
+    client.send_message("/live/track/start_listen/arm", (group_track_id,))
+    wait_one_tick()
+
+    # The server should still be alive and responsive to further queries.
+    rv = client.query("/live/track/get/name", (group_track_id,))
+    assert rv[0] == group_track_id and isinstance(rv[1], str)
+
+    client.send_message("/live/track/stop_listen/arm", (group_track_id,))

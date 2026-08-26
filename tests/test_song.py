@@ -76,14 +76,16 @@ def test_song_listen_tempo(client):
     client.send_message("/live/song/stop_listen/tempo")
 
 def test_song_listen_tracks(client):
+    num_tracks = client.query("/live/song/get/num_tracks")[0]
+
     client.send_message("/live/song/start_listen/tracks")
-    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 2)) == 4
+    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 2)) == num_tracks
 
     client.send_message("/live/song/create_midi_track", [-1])
-    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 4)) == 5
+    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 4)) == num_tracks + 1
 
-    client.send_message("/live/song/delete_track", [4])
-    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 4)) == 4
+    client.send_message("/live/song/delete_track", [num_tracks])
+    assert len(client.await_message("/live/song/get/tracks", TICK_DURATION * 4)) == num_tracks
 
     client.send_message("/live/song/stop_listen/tracks")
 
@@ -181,17 +183,17 @@ def test_song_property_tempo(client):
 #--------------------------------------------------------------------------------
 
 def test_song_tracks(client):
-    assert client.query("/live/song/get/num_tracks") == (4,)
+    num_tracks = client.query("/live/song/get/num_tracks")[0]
     client.send_message("/live/song/create_midi_track", [-1])
     wait_one_tick()
     wait_one_tick()
     wait_one_tick()
-    assert client.query("/live/song/get/num_tracks") == (5,)
-    client.send_message("/live/song/delete_track", [4])
+    assert client.query("/live/song/get/num_tracks") == (num_tracks + 1,)
+    client.send_message("/live/song/delete_track", [num_tracks])
     wait_one_tick()
     wait_one_tick()
     wait_one_tick()
-    assert client.query("/live/song/get/num_tracks") == (4,)
+    assert client.query("/live/song/get/num_tracks") == (num_tracks,)
 
 #--------------------------------------------------------------------------------
 # Test song properties - scenes
