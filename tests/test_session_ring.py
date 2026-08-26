@@ -133,6 +133,14 @@ def test_follow_scene_moves_ring_when_outside_bounds(client):
     client.send_message("/live/session_ring/follow/off", ())
     client.send_message("/live/session_ring/on", (2, 2))
     client.send_message("/live/session_ring/set/position", (0, 0))
+    #--------------------------------------------------------------------------------
+    # Reset the selection to inside the ring bounds *before* enabling follow, so the
+    # "select scene 2" below below is guaranteed to be an actual change -- selected_scene
+    # listeners only fire on change, and a leftover selection from an earlier test/module
+    # (e.g. test_clip.py's recording fixture, which can leave a different track/scene
+    # selected) would otherwise make this a no-op and the assertion below flaky.
+    #--------------------------------------------------------------------------------
+    client.send_message("/live/view/set/selected_scene", (0,))
     wait_one_tick()
 
     client.send_message("/live/session_ring/follow/on", ())
@@ -152,6 +160,8 @@ def test_follow_track_moves_ring_when_outside_bounds(client):
     client.send_message("/live/session_ring/follow/off", ())
     client.send_message("/live/session_ring/on", (2, 2))
     client.send_message("/live/session_ring/set/position", (0, 0))
+    # See comment in test_follow_scene_moves_ring_when_outside_bounds above.
+    client.send_message("/live/view/set/selected_track", (0,))
     wait_one_tick()
 
     client.send_message("/live/session_ring/follow/on", ())
@@ -204,6 +214,11 @@ def test_follow_persists_after_ring_rebuild(client):
     client.send_message("/live/session_ring/on", (3, 3))
     wait_one_tick()
     client.send_message("/live/session_ring/set/position", (0, 0))
+    wait_one_tick()
+
+    # See comment in test_follow_scene_moves_ring_when_outside_bounds above -- make sure
+    # the "select scene 3" below is an actual change.
+    client.send_message("/live/view/set/selected_scene", (0,))
     wait_one_tick()
 
     # Select scene outside new ring [0, 3)
