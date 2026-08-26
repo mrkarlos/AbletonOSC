@@ -8,11 +8,21 @@ import threading
 #--------------------------------------------------------------------------------
 
 def _test_track_property(client, track_id, property, values):
-    for value in values:
-        print("Testing property %s, value: %s" % (property, value))
-        client.send_message("/live/track/set/%s" % property, [track_id, value])
+    #--------------------------------------------------------------------------------
+    # Restore the pre-test value afterwards, so running the suite repeatedly against
+    # the same loaded Set doesn't leave track properties (name, color, ...) drifted
+    # from run to run.
+    #--------------------------------------------------------------------------------
+    original_value = client.query("/live/track/get/%s" % property, [track_id])[1]
+    try:
+        for value in values:
+            print("Testing property %s, value: %s" % (property, value))
+            client.send_message("/live/track/set/%s" % property, [track_id, value])
+            wait_one_tick()
+            assert client.query("/live/track/get/%s" % property, [track_id]) == (track_id, value,)
+    finally:
+        client.send_message("/live/track/set/%s" % property, [track_id, original_value])
         wait_one_tick()
-        assert client.query("/live/track/get/%s" % property, [track_id]) == (track_id, value,)
 
 def test_track_property_panning(client):
     _test_track_property(client, 2, "panning", [0.5, 0.0])
@@ -41,10 +51,15 @@ def test_track_get_send(client):
     track_id = 2
     send_id = 1
 
-    for value in [0.5, 0.0]:
-        client.send_message("/live/track/set/send", [track_id, send_id, value])
+    original_value = client.query("/live/track/get/send", (track_id, send_id))[2]
+    try:
+        for value in [0.5, 0.0]:
+            client.send_message("/live/track/set/send", [track_id, send_id, value])
+            wait_one_tick()
+            assert client.query("/live/track/get/send", (track_id, send_id)) == (track_id, send_id, value,)
+    finally:
+        client.send_message("/live/track/set/send", [track_id, send_id, original_value])
         wait_one_tick()
-        assert client.query("/live/track/get/send", (track_id, send_id)) == (track_id, send_id, value,)
 
 #--------------------------------------------------------------------------------
 # Test track properties - clips
@@ -83,6 +98,7 @@ def test_track_devices(client):
 def test_track_listen_playing_slot_index(client):
     client.verbose = True
     # 1/16th quantize
+    original_quantization = client.query("/live/song/get/clip_trigger_quantization")[0]
     client.send_message("/live/song/set/clip_trigger_quantization", (11,))
     for track_id, clip_id in itertools.product((0, 1), (0, 1)):
         client.send_message("/live/clip_slot/create_clip", (track_id, clip_id, 4))
@@ -130,3 +146,39 @@ def test_track_listen_playing_slot_index(client):
 
     for track_id, clip_id in itertools.product((0, 1), (0, 1)):
         client.send_message("/live/clip_slot/delete_clip", (track_id, clip_id))
+
+    client.send_message("/live/song/set/clip_trigger_quantization", (original_quantization,))
+
+#--------------------------------------------------------------------------------
+# Test track properties - Group tracks
+#--------------------------------------------------------------------------------
+
+def test_track_listen_arm_group_track_graceful(client):
+    """
+    Group tracks (like Master/Return tracks) have no Arm state. Live raises a
+    RuntimeError from add_arm_listener/remove_arm_listener when queried on one
+    ("Main and Return Tracks have no 'Arm' state!" -- the same message Live uses
+    for any track without an Arm state, not just literal Master/Return tracks).
+
+    This should be handled gracefully -- logged and skipped -- rather than raise
+    an unhandled exception that reaches osc_server's generic error handler.
+    See track.py's track_callback.
+    """
+    group_track_id = 4
+
+    assert client.query("/live/track/get/can_be_armed", (group_track_id,)) == (group_track_id, False)
+
+    # get/arm is already handled gracefully by the generic _get_property, which catches
+    # RuntimeError and returns None.
+    assert client.query("/live/track/get/arm", (group_track_id,)) == (group_track_id, None)
+
+    # start_listen/arm must not crash the OSC server, and must not register a listener
+    # (since the underlying add_arm_listener call raises).
+    client.send_message("/live/track/start_listen/arm", (group_track_id,))
+    wait_one_tick()
+
+    # The server should still be alive and responsive to further queries.
+    rv = client.query("/live/track/get/name", (group_track_id,))
+    assert rv[0] == group_track_id and isinstance(rv[1], str)
+
+    client.send_message("/live/track/stop_listen/arm", (group_track_id,))

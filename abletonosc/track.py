@@ -32,10 +32,21 @@ class TrackHandler(AbletonOSCHandler):
 
                 for track_index in track_indices:
                     track = self.song.tracks[track_index]
-                    if include_track_id:
-                        rv = func(track, *args, tuple([track_index] + params[1:]))
-                    else:
-                        rv = func(track, *args, tuple(params[1:]))
+                    try:
+                        if include_track_id:
+                            rv = func(track, *args, tuple([track_index] + params[1:]))
+                        else:
+                            rv = func(track, *args, tuple(params[1:]))
+                    except RuntimeError as e:
+                        #--------------------------------------------------------------------------------
+                        # Some properties (e.g. arm) don't apply to certain tracks -- for example,
+                        # Master and Return tracks have no Arm state, so add/remove_arm_listener
+                        # raises a RuntimeError. Log a warning and skip this track rather than
+                        # letting the exception propagate up to a generic error in osc_server.
+                        #--------------------------------------------------------------------------------
+                        self.logger.warning("AbletonOSC: track %d does not support this operation: %s" %
+                                            (track_index, e))
+                        continue
 
                     if rv is not None:
                         return (track_index, *rv)
