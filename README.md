@@ -58,6 +58,36 @@ These messages are sent to the client automatically when the application state c
 
 ---
 
+## Application View API
+
+Represents `Application.View` — top-level UI/window state (which main view is focused,
+hot-swap/browse mode) and the show/hide/focus/scroll/zoom view-navigation methods. No index
+is required; there is only one Application.
+
+<details>
+<summary><b>Documentation</b>: Application View API</summary>
+
+| Address                                            | Query params                            | Response params           | Description                                                                                     |
+|:----------------------------------------------------|:-----------------------------------------|:---------------------------|:--------------------------------------------------------------------------------------------------|
+| /live/application_view/get/browse_mode              |                                           | browse_mode                | Whether Hot-Swap Mode is active for any target (1 = active)                                       |
+| /live/application_view/get/focused_document_view     |                                           | focused_document_view      | The name of the currently visible view ("Session" or "Arranger")                                  |
+| /live/application_view/start_listen/browse_mode      |                                           | browse_mode                | Start listening; replies sent to `.../get/browse_mode`                                            |
+| /live/application_view/stop_listen/browse_mode       |                                           |                             | Stop listening                                                                                     |
+| /live/application_view/start_listen/focused_document_view |                                     | focused_document_view      | Start listening; replies sent to `.../get/focused_document_view`                                  |
+| /live/application_view/stop_listen/focused_document_view  |                                     |                             | Stop listening                                                                                     |
+| /live/application_view/get/available_main_views      |                                           | view_name, [view_name, ...]| Returns the list of view names usable with show_view/hide_view/focus_view/is_view_visible          |
+| /live/application_view/get/is_view_visible           | view_name                                | is_visible                 | Whether the named view is currently visible                                                       |
+| /live/application_view/show_view                     | view_name                                |                             | Show the named view (e.g. "Session", "Arranger", "Browser", "Detail", "Detail/Clip", "Detail/DeviceChain") |
+| /live/application_view/hide_view                     | view_name                                |                             | Hide the named view (pass `" "` for the current main view)                                        |
+| /live/application_view/focus_view                    | view_name                                |                             | Show and focus the named view (pass `" "` for the current main view)                              |
+| /live/application_view/toggle_browse                 |                                           |                             | Show the device chain/browser and toggle Hot-Swap Mode for the selected device                    |
+| /live/application_view/scroll_view                   | direction, view_name, modifier_pressed   |                             | Scroll a view. direction: 0=up, 1=down, 2=left, 3=right                                           |
+| /live/application_view/zoom_view                     | direction, view_name, modifier_pressed   |                             | Zoom the Arrangement or Session view (same params as scroll_view)                                 |
+
+</details>
+
+---
+
 ## Song API
 
 Represents the top-level Song object. Used to start/stop playback, create/modify scenes, create/jump to cue points, and set global parameters (tempo, metronome).
@@ -229,7 +259,11 @@ To be notified whenever tracks or scenes are added, deleted, or reordered, call 
 
 ## View API
 
-Represents the view (user interface) of live
+Represents the view (user interface) of live. This section covers Song.View's selection
+state only (`selected_scene`/`selected_track`/`selected_clip`/`selected_device`), kept here
+for backward compatibility. [Song View API](#song-view-api) below covers the full
+`Song.View` class, including duplicates of everything in this section — new integrations
+should prefer `/live/song_view/*` over this legacy namespace.
 
 <details>
 <summary><b>Documentation</b>: View API</summary>
@@ -248,6 +282,65 @@ Represents the view (user interface) of live
 | /live/view/start_listen/selected_track |                          | selected_track           | Start listening to selected track (first track = 0)     |
 | /live/view/stop_listen/selected_scene  |                          |                          | Stop listening to the selected scene (first scene = 0)  |
 | /live/view/stop_listen/selected_track  |                          |                          | Stop listening to selected track (first track = 0)      |
+</details>
+
+---
+
+## Song View API
+
+Represents the full public surface of Live's `Song.View` class — draw_mode, follow_song,
+detail_clip, highlighted_clip_slot, selected_scene, selected_track, selected_device, and
+the derived selected_clip convenience.
+
+`selected_scene`/`selected_track`/`selected_clip`/`selected_device` are also available
+under legacy [View API](#view-api) (`/live/view/*`), kept there for backward compatibility.
+They're deliberately duplicated here too — as an independent implementation, not a
+delegation — so `/live/song_view/*` is a strict superset of `/live/view/*`: if `/live/view/*`
+is ever deprecated, anything already using `/live/song_view/*` is unaffected.
+
+<details>
+<summary><b>Documentation</b>: Song View API</summary>
+
+| Address                                        | Query params              | Response params           | Description                                                                                     |
+|:------------------------------------------------|:---------------------------|:----------------------------|:--------------------------------------------------------------------------------------------------|
+| /live/song_view/get/draw_mode                    |                            | draw_mode                  | Automation Draw Mode state (0 = breakpoint editing, 1 = drawing)                                  |
+| /live/song_view/set/draw_mode                    | draw_mode                  |                             | Set Draw Mode                                                                                      |
+| /live/song_view/start_listen/draw_mode           |                            | draw_mode                  | Start listening; replies sent to `.../get/draw_mode`                                              |
+| /live/song_view/stop_listen/draw_mode            |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/follow_song                  |                            | follow_song                | Follow switch state (0 = don't follow playback position, 1 = follow)                              |
+| /live/song_view/set/follow_song                  | follow_song                |                             | Set the Follow switch                                                                              |
+| /live/song_view/start_listen/follow_song         |                            | follow_song                | Start listening; replies sent to `.../get/follow_song`                                            |
+| /live/song_view/stop_listen/follow_song          |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/detail_clip                  |                            | track_index, clip_index    | The clip shown in Detail View, as (track_index, clip_index); (-1, -1) if none. Note: an Arrangement-view detail clip is also reported as (-1, -1), since it has no clip_slot address. |
+| /live/song_view/set/detail_clip                  | track_index, clip_index    |                             | Show the given clip in Detail View. (-1, -1) is a documented no-op, not a clear — Live's API has no supported way to explicitly clear detail_clip; it only reverts to (-1, -1) as a side effect of the underlying clip being deleted |
+| /live/song_view/start_listen/detail_clip         |                            | track_index, clip_index    | Start listening; replies sent to `.../get/detail_clip`                                            |
+| /live/song_view/stop_listen/detail_clip          |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/highlighted_clip_slot        |                            | track_index, clip_index    | The Session View slot currently highlighted, as (track_index, clip_index); (-1, -1) if none       |
+| /live/song_view/set/highlighted_clip_slot        | track_index, clip_index    |                             | Set the highlighted slot                                                                            |
+| /live/song_view/get/selected_scene               |                            | scene_index                | Returns the selected scene index (first scene = 0)                                                |
+| /live/song_view/set/selected_scene               | scene_index                |                             | Set the selected scene (first scene = 0)                                                          |
+| /live/song_view/start_listen/selected_scene      |                            | scene_index                 | Start listening; replies sent to `.../get/selected_scene`                                         |
+| /live/song_view/stop_listen/selected_scene       |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/selected_track               |                            | track_index                | Returns the selected track index (first track = 0)                                                |
+| /live/song_view/set/selected_track               | track_index                |                             | Set the selected track (first track = 0)                                                          |
+| /live/song_view/start_listen/selected_track      |                            | track_index                 | Start listening; replies sent to `.../get/selected_track`                                         |
+| /live/song_view/stop_listen/selected_track       |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/selected_clip                |                            | track_index, scene_index   | Returns the track and scene index of the selected clip (derived from selected_track + selected_scene; not a real Song.View property) |
+| /live/song_view/set/selected_clip                | track_index, scene_index   |                             | Set the selected clip (sets selected_track and selected_scene together)                            |
+| /live/song_view/start_listen/selected_clip       |                            | track_index, scene_index   | Start listening (fires on either selected_track or selected_scene changing)                       |
+| /live/song_view/stop_listen/selected_clip        |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/selected_device              |                            | track_index, device_index  | The selected device on the selected track (first device = 0); -1 if none selected                 |
+| /live/song_view/set/selected_device              | track_index, device_index  |                             | Select the given device (wraps Song.View.select_device(device))                                    |
+| /live/song_view/start_listen/selected_device     |                            | track_index, device_index  | Start listening (re-attaches across a selected_track change)                                       |
+| /live/song_view/stop_listen/selected_device      |                            |                             | Stop listening                                                                                     |
+
+Notes:
+- `highlighted_clip_slot` has no `start_listen`/`stop_listen` support — Live does not expose
+  a listener for this property.
+- `selected_chain` and `selected_parameter` (Song.View's remaining two members) are not yet
+  supported: both need a chain/parameter addressing scheme this codebase doesn't have yet
+  (the same reason [Clip View API](#clip-view-api)'s `select_envelope_parameter` is omitted).
+
 </details>
 
 ---
@@ -355,6 +448,39 @@ See [Device API](#device-api) for details on Device type/class_names, and [Findi
 
 ---
 
+## Track View API
+
+Represents Live's `Track.View` class, indexed by `track_index`.
+
+<details>
+<summary><b>Documentation</b>: Track View API</summary>
+
+| Address                                       | Query params                | Response params              | Description                                                                                  |
+|:------------------------------------------------|:------------------------------|:--------------------------------|:-------------------------------------------------------------------------------------------------|
+| /live/track_view/get/device_insert_mode          | track_id                      | track_id, device_insert_mode    | Where a device is inserted when loaded from the browser (0 = end, 1 = left of selected device, 2 = right) |
+| /live/track_view/set/device_insert_mode          | track_id, device_insert_mode  |                                  | Set device_insert_mode                                                                            |
+| /live/track_view/start_listen/device_insert_mode | track_id                      | track_id, device_insert_mode    | Start listening; replies sent to `.../get/device_insert_mode`                                    |
+| /live/track_view/stop_listen/device_insert_mode  | track_id                      |                                  | Stop listening                                                                                    |
+| /live/track_view/get/is_collapsed                | track_id                      | track_id, is_collapsed          | Whether the track is collapsed in Arrangement View                                               |
+| /live/track_view/set/is_collapsed                | track_id, is_collapsed        |                                  | Set is_collapsed                                                                                   |
+| /live/track_view/start_listen/is_collapsed       | track_id                      | track_id, is_collapsed          | Start listening; replies sent to `.../get/is_collapsed`                                          |
+| /live/track_view/stop_listen/is_collapsed        | track_id                      |                                  | Stop listening                                                                                    |
+| /live/track_view/get/selected_device             | track_id                      | track_id, device_index          | The selected device on this track (first device = 0); -1 if none selected                        |
+| /live/track_view/start_listen/selected_device    | track_id                      | track_id, device_index          | Start listening; replies sent to `.../get/selected_device`                                       |
+| /live/track_view/stop_listen/selected_device     | track_id                      |                                  | Stop listening                                                                                    |
+| /live/track_view/select_instrument               | track_id                      | track_id, selected              | Select the track's instrument or first device. `selected` is 0 if no devices are available        |
+
+`track_id` also accepts the wildcard `"*"` to apply to all tracks, matching the [Track API](#track-api) convention.
+
+Note: `device_insert_mode` is documented in Cycling '74's LOM reference as a 3-way int enum
+(0/1/2), but was observed returning/accepting a plain bool at runtime in Live 12.3. This
+handler is a pure passthrough of whatever Live returns, so treat the value's exact type as
+Live-version-dependent rather than relying on the documented int semantics.
+
+</details>
+
+---
+
 ## Clip Slot API
 
 A Clip Slot represents a container for a clip. It is used to create and delete clips, and query their existence.
@@ -444,6 +570,34 @@ Represents an audio or MIDI clip. Can be used to start/stop clips, and query/mod
 | /live/clip/set/start_marker              | track_id, clip_id, start_marker                                     |                                                                                        | Set clip's start marker, expressed in floating-point beats                                                                                               |
 | /live/clip/get/end_marker                | track_id, clip_id                                                   | track_id, clip_id, end_marker                                                          | Get clip's end marker                                                                                                                                    |
 | /live/clip/set/end_marker                | track_id, clip_id, end_marker                                       |                                                                                        | Set clip's end marker, expressed in floating-point beats                                                                                                 |
+
+</details>
+
+---
+
+## Clip View API
+
+Represents Live's `Clip.View` class, indexed by `(track_id, clip_id)` — same addressing as
+[Clip API](#clip-api).
+
+<details>
+<summary><b>Documentation</b>: Clip View API</summary>
+
+| Address                                  | Query params                    | Response params                     | Description                                                             |
+|:-------------------------------------------|:-----------------------------------|:---------------------------------------|:----------------------------------------------------------------------------|
+| /live/clip_view/get/grid_quantization       | track_id, clip_id                  | track_id, clip_id, grid_quantization   | The clip's grid quantization value (RecordingQuantization enum)             |
+| /live/clip_view/set/grid_quantization       | track_id, clip_id, grid_quantization |                                       | Set grid_quantization                                                       |
+| /live/clip_view/get/grid_is_triplet         | track_id, clip_id                  | track_id, clip_id, grid_is_triplet     | Whether the clip is displayed with a triplet grid                           |
+| /live/clip_view/set/grid_is_triplet         | track_id, clip_id, grid_is_triplet |                                       | Set grid_is_triplet                                                         |
+| /live/clip_view/show_envelope               | track_id, clip_id                  |                                         | Show the Envelopes box in Clip View                                         |
+| /live/clip_view/hide_envelope               | track_id, clip_id                  |                                         | Hide the Envelopes box                                                      |
+| /live/clip_view/show_loop                   | track_id, clip_id                  |                                         | If the clip is visible in Detail View, scroll it to show the current loop   |
+
+Notes:
+- `grid_quantization`/`grid_is_triplet` have no `start_listen`/`stop_listen` support — Live does
+  not expose listeners for these properties.
+- `select_envelope_parameter(parameter)` is not yet supported: it needs a
+  `(device_id, parameter_id)` address that doesn't fit this namespace's two-index protocol.
 
 </details>
 
@@ -613,6 +767,25 @@ For devices:
 
 </details>
 
+
+---
+
+## Device View API
+
+Represents Live's `Device.View` class, indexed by `(track_id, device_id)` — same addressing
+as [Device API](#device-api).
+
+<details>
+<summary><b>Documentation</b>: Device View API</summary>
+
+| Address                                | Query params              | Response params               | Description                                              |
+|:------------------------------------------|:-----------------------------|:----------------------------------|:--------------------------------------------------------------|
+| /live/device_view/get/is_collapsed          | track_id, device_id           | track_id, device_id, is_collapsed | Whether the device is shown collapsed in the device chain     |
+| /live/device_view/set/is_collapsed          | track_id, device_id, is_collapsed |                                | Set is_collapsed                                               |
+| /live/device_view/start_listen/is_collapsed | track_id, device_id           | track_id, device_id, is_collapsed | Start listening; replies sent to `.../get/is_collapsed`       |
+| /live/device_view/stop_listen/is_collapsed  | track_id, device_id           |                                    | Stop listening                                                 |
+
+</details>
 
 ---
 

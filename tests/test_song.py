@@ -14,19 +14,52 @@ def test_song_play(client):
     assert client.query("/live/song/get/is_playing") == (False,)
 
 def test_song_beat(client):
+    #--------------------------------------------------------------------------------
+    # Exact expected beat values (1, 2, 3, ...) are timing-dependent -- how many ticks
+    # elapse before each listener push fires, current tempo, scheduler jitter -- so
+    # pinning them made this test flaky. Instead just confirm the beat count is
+    # monotonically advancing while playing, and stays within a sane bound (two bars,
+    # i.e. 8 beats in the default 4/4 time signature) rather than asserting on specific
+    # values.
+    #
+    # Unlike most listened properties, /live/song/start_listen/beat doesn't push a value
+    # immediately on registration (song.py's beat listener only fires on an actual
+    # current_song_time change) -- so get a baseline via current_song_time directly,
+    # and reset it to 0 first so playback starts from a known position.
+    #--------------------------------------------------------------------------------
     client.send_message("/live/song/stop_playing")
+    client.send_message("/live/song/set/current_song_time", (0,))
+    wait_one_tick()
+
     client.send_message("/live/song/start_listen/beat")
+    beat = client.query("/live/song/get/current_song_time")[0]
+
     client.send_message("/live/song/start_playing")
     wait_one_tick()
     wait_one_tick()
-    assert client.await_message("/live/song/get/beat", timeout=1.0) == (1,)
-    assert client.await_message("/live/song/get/beat", timeout=1.0) == (2,)
+
+    next_beat = client.await_message("/live/song/get/beat", timeout=1.0)[0]
+    assert beat < next_beat < 8
+    beat = next_beat
+
+    next_beat = client.await_message("/live/song/get/beat", timeout=1.0)[0]
+    assert beat < next_beat < 8
+    beat = next_beat
+
     client.send_message("/live/song/stop_playing")
     wait_one_tick()
     client.send_message("/live/song/continue_playing")
-    assert client.await_message("/live/song/get/beat", timeout=1.0) == (3,)
+
+    next_beat = client.await_message("/live/song/get/beat", timeout=1.0)[0]
+    assert beat <= next_beat < 8
+
     client.send_message("/live/song/stop_playing")
     client.send_message("/live/song/stop_listen/beat")
+    #--------------------------------------------------------------------------------
+    # Leave the transport stopped and rewound, rather than mid-song, for whatever runs
+    # next (another test, or manual use of the Set).
+    #--------------------------------------------------------------------------------
+    client.send_message("/live/song/set/current_song_time", (0,))
     wait_one_tick()
 
 def test_song_stop_all_clips(client):

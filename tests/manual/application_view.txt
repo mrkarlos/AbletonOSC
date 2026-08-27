@@ -1,0 +1,20 @@
+/live/application_view/get/browse_mode
+/live/application_view/get/focused_document_view
+
+/live/application_view/get/available_main_views
+
+/live/application_view/show_view Session
+/live/application_view/get/is_view_visible Session
+
+/live/application_view/start_listen/focused_document_view
+/live/application_view/focus_view Arranger
+/live/application_view/focus_view Session
+/live/application_view/stop_listen/focused_document_view
+
+/live/application_view/start_listen/browse_mode
+/live/application_view/toggle_browse
+/live/application_view/toggle_browse
+/live/application_view/stop_listen/browse_mode
+
+/live/application_view/scroll_view 1 Session 0
+/live/application_view/zoom_view 0 Session 0

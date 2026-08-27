@@ -1,0 +1,23 @@
+/live/track_view/get/is_collapsed 2
+/live/track_view/start_listen/is_collapsed 2
+/live/track_view/set/is_collapsed 2 1
+/live/track_view/set/is_collapsed 2 0
+/live/track_view/stop_listen/is_collapsed 2
+
+/live/track_view/get/device_insert_mode 2
+/live/track_view/start_listen/device_insert_mode 2
+/live/track_view/set/device_insert_mode 2 1
+/live/track_view/set/device_insert_mode 2 0
+/live/track_view/stop_listen/device_insert_mode 2
+
+/live/track_view/get/is_collapsed *
+
+/live/track_view/get/selected_device 1
+
+/live/view/set/selected_track 0
+/live/track_view/start_listen/selected_device 0
+/live/view/set/selected_device 0 0
+/live/track_view/stop_listen/selected_device 0
+
+/live/track_view/select_instrument 0
+/live/track_view/select_instrument 1

@@ -1,0 +1,18 @@
+/live/clip_slot/create_clip 0 0 8.0
+
+/live/clip_view/get/grid_quantization 0 0
+/live/clip_view/set/grid_quantization 0 0 4
+/live/clip_view/get/grid_quantization 0 0
+
+/live/clip_view/get/grid_is_triplet 0 0
+/live/clip_view/set/grid_is_triplet 0 0 1
+/live/clip_view/get/grid_is_triplet 0 0
+/live/clip_view/set/grid_is_triplet 0 0 0
+
+/live/clip_view/show_envelope 0 0
+/live/clip_view/hide_envelope 0 0
+/live/clip_view/show_loop 0 0
+
+/live/track/delete_clip 0 0
+
+/live/clip_view/get/grid_quantization 0 0

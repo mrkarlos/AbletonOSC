@@ -35,11 +35,26 @@ messages sent to a live process.
 Prerequisites:
 
 - Live must be configured with default audio input and output devices.
-- Live must be started with a blank default set.
+- Live must be started with a blank default set matching the fixed shape
+  described below — use the **"AbletonOSC Test"** template (`File > New Live
+  Set From Template... > AbletonOSC Test`), not whatever Set happens to
+  already be open.
 - In `Preferences > Record, Warp & Launch`, `Count-In` must be set to `None`
   (for recording test clips).
 - AbletonOSC must be selected as the Control Surface in Live's MIDI
   preferences.
+
+**Load the "AbletonOSC Test" template fresh before every run, not just the
+first one.** The integration suite is **not idempotent**: it mutates the
+live, in-memory Song in place (creating/deleting tracks, scenes, clips,
+changing tempo, transport position, etc.) — it never touches the template
+file on disk. Re-running `pytest tests/` against whatever state a previous
+run left behind (rather than a freshly-reloaded template) can leave the Set
+in a shape the suite's fixed-shape assumptions no longer hold for, and
+surface as unrelated-looking failures (e.g. clip-index-out-of-range errors)
+that have nothing to do with the code actually being tested. If you hit a
+confusing integration failure, reload the template before assuming it's a
+real bug.
 
 Run with:
 
@@ -56,7 +71,10 @@ track) and aborts the run immediately with a clear message if it doesn't
 match, rather than letting an unprepped set surface as a wall of unrelated
 failures. This can only check what's visible over OSC — it can't verify the
 Count-In or default audio
-device prerequisites above, since those aren't exposed via the Live API.
+device prerequisites above, since those aren't exposed via the Live API. It
+also can't detect drift *within* the fixed shape (e.g. a leftover clip in a
+slot that's supposed to be empty) — reloading the template is what actually
+guards against that, not this check.
 
 ## Which tier does a new test belong in?
 
