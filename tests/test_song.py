@@ -89,6 +89,20 @@ def test_song_listen_tracks(client):
 
     client.send_message("/live/song/stop_listen/tracks")
 
+def test_song_listen_num_tracks(client):
+    num_tracks = client.query("/live/song/get/num_tracks")[0]
+
+    client.send_message("/live/song/start_listen/num_tracks")
+    assert client.await_message("/live/song/get/num_tracks", TICK_DURATION * 2) == (num_tracks,)
+
+    client.send_message("/live/song/create_midi_track", [-1])
+    assert client.await_message("/live/song/get/num_tracks", TICK_DURATION * 4) == (num_tracks + 1,)
+
+    client.send_message("/live/song/delete_track", [num_tracks])
+    assert client.await_message("/live/song/get/num_tracks", TICK_DURATION * 4) == (num_tracks,)
+
+    client.send_message("/live/song/stop_listen/num_tracks")
+
 def test_song_listen_scenes(client):
     client.send_message("/live/song/start_listen/scenes")
     assert len(client.await_message("/live/song/get/scenes", TICK_DURATION * 2)) == 8
@@ -100,6 +114,18 @@ def test_song_listen_scenes(client):
     assert len(client.await_message("/live/song/get/scenes", TICK_DURATION * 4)) == 8
 
     client.send_message("/live/song/stop_listen/scenes")
+
+def test_song_listen_num_scenes(client):
+    client.send_message("/live/song/start_listen/num_scenes")
+    assert client.await_message("/live/song/get/num_scenes", TICK_DURATION * 2) == (8,)
+
+    client.send_message("/live/song/create_scene", [-1])
+    assert client.await_message("/live/song/get/num_scenes", TICK_DURATION * 4) == (9,)
+
+    client.send_message("/live/song/delete_scene", [8])
+    assert client.await_message("/live/song/get/num_scenes", TICK_DURATION * 4) == (8,)
+
+    client.send_message("/live/song/stop_listen/num_scenes")
 
 def test_song_listen_cue_points(client):
     client.send_message("/live/song/set/current_song_time", [0])

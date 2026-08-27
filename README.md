@@ -162,8 +162,8 @@ for [Live Object Model - Song](https://docs.cycling74.com/max8/vignettes/live_ob
 | Address                    | Query params | Response params        | Description                                                                 |
 |:---------------------------|:-------------|:-----------------------|:----------------------------------------------------------------------------|
 | /live/song/get/cue_points  |              | name, time, ...        | Query a list of the song's cue points                                       |
-| /live/song/get/num_scenes  |              | num_scenes             | Query the number of scenes                                                  |
-| /live/song/get/num_tracks  |              | num_tracks             | Query the number of tracks                                                  |
+| /live/song/get/num_scenes  |              | num_scenes             | Query the number of scenes. Can be listened for with `/live/song/start_listen/num_scenes` |
+| /live/song/get/num_tracks  |              | num_tracks             | Query the number of tracks. Can be listened for with `/live/song/start_listen/num_tracks` |
 | /live/song/get/track_names |              | [index_min, index_max] | Query track names (optionally, over a given range)                          |
 | /live/song/get/tracks      |              | name, name, ...        | Query all track names in their current order                               |
 | /live/song/get/scenes      |              | name, name, ...        | Query all scene names in their current order                                |
