@@ -98,6 +98,24 @@ class SongHandler(AbletonOSCHandler):
         #--------------------------------------------------------------------------------
         self.osc_server.add_handler("/live/song/get/num_tracks", lambda _: (len(self.song.tracks),))
 
+        #--------------------------------------------------------------------------------
+        # num_tracks has no native Live listener; piggyback on the tracks listener
+        # (which fires whenever a track is added or removed) and push just the count.
+        #--------------------------------------------------------------------------------
+        def stop_num_tracks_listener(params: Tuple[Any] = ()):
+            try:
+                self.song.remove_tracks_listener(self.num_tracks_changed)
+            except:
+                pass
+
+        def start_num_tracks_listener(params: Tuple[Any] = ()):
+            stop_num_tracks_listener()
+            self.song.add_tracks_listener(self.num_tracks_changed)
+            self.num_tracks_changed()
+
+        self.osc_server.add_handler("/live/song/start_listen/num_tracks", start_num_tracks_listener)
+        self.osc_server.add_handler("/live/song/stop_listen/num_tracks", stop_num_tracks_listener)
+
         def song_get_track_names(params):
             if len(params) == 0:
                 track_index_min, track_index_max = 0, len(self.song.tracks)
@@ -284,6 +302,24 @@ class SongHandler(AbletonOSCHandler):
         #--------------------------------------------------------------------------------
         self.osc_server.add_handler("/live/song/get/num_scenes", lambda _: (len(self.song.scenes),))
 
+        #--------------------------------------------------------------------------------
+        # num_scenes has no native Live listener; piggyback on the scenes listener
+        # (which fires whenever a scene is added or removed) and push just the count.
+        #--------------------------------------------------------------------------------
+        def stop_num_scenes_listener(params: Tuple[Any] = ()):
+            try:
+                self.song.remove_scenes_listener(self.num_scenes_changed)
+            except:
+                pass
+
+        def start_num_scenes_listener(params: Tuple[Any] = ()):
+            stop_num_scenes_listener()
+            self.song.add_scenes_listener(self.num_scenes_changed)
+            self.num_scenes_changed()
+
+        self.osc_server.add_handler("/live/song/start_listen/num_scenes", start_num_scenes_listener)
+        self.osc_server.add_handler("/live/song/stop_listen/num_scenes", stop_num_scenes_listener)
+
         def song_get_scene_names(params):
             if len(params) == 0:
                 scene_index_min, scene_index_max = 0, len(self.song.scenes)
@@ -359,9 +395,23 @@ class SongHandler(AbletonOSCHandler):
             self.osc_server.send("/live/song/get/beat", (int(self.song.current_song_time),))
         self.last_song_time = self.song.current_song_time
 
+    def num_tracks_changed(self):
+        self.osc_server.send("/live/song/get/num_tracks", (len(self.song.tracks),))
+
+    def num_scenes_changed(self):
+        self.osc_server.send("/live/song/get/num_scenes", (len(self.song.scenes),))
+
     def clear_api(self):
         super().clear_api()
         try:
             self.song.remove_current_song_time_listener(self.current_song_time_changed)
+        except:
+            pass
+        try:
+            self.song.remove_tracks_listener(self.num_tracks_changed)
+        except:
+            pass
+        try:
+            self.song.remove_scenes_listener(self.num_scenes_changed)
         except:
             pass
