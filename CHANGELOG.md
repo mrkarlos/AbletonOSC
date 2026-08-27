@@ -19,8 +19,11 @@ tracking.
   - `/live/application_view/*` — `Application.View` (browse_mode, focused_document_view,
     show/hide/focus_view, scroll/zoom_view, toggle_browse, is_view_visible,
     available_main_views).
-  - `/live/song_view/*` — the rest of `Song.View` not already covered by `/live/view/*`
-    (draw_mode, follow_song, detail_clip, highlighted_clip_slot).
+  - `/live/song_view/*` — the full `Song.View` class (draw_mode, follow_song, detail_clip,
+    highlighted_clip_slot, plus independent duplicates of `/live/view/*`'s
+    selected_scene/selected_track/selected_clip/selected_device, so `/live/song_view/*` is
+    a strict superset — not a breaking change if `/live/view/*` is deprecated later).
+    `selected_chain`/`selected_parameter` intentionally omitted (see README).
   - `/live/track_view/*` — `Track.View` (device_insert_mode, is_collapsed, selected_device,
     select_instrument), indexed by `track_id`.
   - `/live/clip_view/*` — `Clip.View` (grid_quantization, grid_is_triplet, show_envelope,

@@ -24,3 +24,20 @@
 /live/song_view/get/highlighted_clip_slot
 
 /live/track/delete_clip 0 0
+
+/live/song_view/set/selected_track 0
+/live/song_view/get/selected_track
+/live/song_view/set/selected_scene 0
+/live/song_view/get/selected_scene
+/live/song_view/get/selected_clip
+/live/song_view/get/selected_device
+
+/live/song_view/start_listen/selected_clip
+/live/song_view/set/selected_track 1
+/live/song_view/set/selected_scene 1
+/live/song_view/stop_listen/selected_clip
+
+/live/song_view/start_listen/selected_device
+/live/song_view/set/selected_track 0
+/live/song_view/set/selected_device 0 0
+/live/song_view/stop_listen/selected_device

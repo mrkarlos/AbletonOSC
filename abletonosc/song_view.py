@@ -4,16 +4,46 @@ from .handler import AbletonOSCHandler
 
 class SongViewHandler(AbletonOSCHandler):
     """
-    Wraps the parts of Live's Song.View class (self.song.view) that aren't already
-    exposed by the legacy /live/view/* namespace.
+    Wraps the full public surface of Live's Song.View class (self.song.view) --
+    draw_mode, follow_song, detail_clip, highlighted_clip_slot, selected_scene,
+    selected_track, selected_device, and the derived selected_clip convenience.
 
-    /live/view/* (view.py) covers selected_scene/selected_track/selected_clip/
-    selected_device and is left untouched for backward compatibility. This handler
-    covers draw_mode, follow_song, detail_clip and highlighted_clip_slot.
+    /live/view/* (view.py) already exposes selected_scene/selected_track/selected_clip/
+    selected_device, and is left untouched for backward compatibility -- but everything
+    it offers is deliberately duplicated here too (as an independent implementation, not
+    a delegation), so /live/song_view/* is a strict superset of Song.View. That means it
+    can absorb /live/view/*'s users without a breaking change if /live/view/* is ever
+    deprecated.
+
+    selected_chain and selected_parameter are the only Song.View members NOT covered --
+    both need a chain/parameter addressing scheme this codebase doesn't have yet (the
+    same reason clip_view.py omits select_envelope_parameter). Deliberately deferred,
+    not an oversight.
     """
     def __init__(self, manager):
         super().__init__(manager)
         self.class_identifier = "song_view"
+        #--------------------------------------------------------------------------------
+        # selected_clip and selected_device don't map onto a single Live property with its
+        # own add_<prop>_listener, so their listeners are managed by hand here, same
+        # situation as view.py's identical selected_clip/selected_device handling (this is
+        # an independent implementation, not a shared one -- Live is happy to have
+        # multiple distinct listener callbacks registered on the same object).
+        #--------------------------------------------------------------------------------
+        self._selected_clip_listener_cb = None
+        self._selected_device_listener_state = None
+
+    def clear_api(self):
+        #--------------------------------------------------------------------------------
+        # selected_clip/selected_device listeners are managed outside listener_functions/
+        # listener_objects (see init_api), so stop them explicitly before the base class's
+        # _clear_listeners() runs over listener_functions -- same approach view.py uses.
+        #--------------------------------------------------------------------------------
+        if self._selected_clip_listener_cb is not None:
+            self._stop_listen_selected_clip()
+        if self._selected_device_listener_state is not None:
+            self._stop_listen_selected_device()
+        super().clear_api()
 
     def init_api(self):
         target = self.song.view
@@ -102,3 +132,155 @@ class SongViewHandler(AbletonOSCHandler):
 
         self.osc_server.add_handler("/live/song_view/get/highlighted_clip_slot", get_highlighted_clip_slot)
         self.osc_server.add_handler("/live/song_view/set/highlighted_clip_slot", set_highlighted_clip_slot)
+
+        #--------------------------------------------------------------------------------
+        # selected_scene, selected_track, selected_clip (derived), selected_device: full
+        # parity with /live/view/*'s equivalents (view.py), reimplemented independently
+        # here rather than delegated to, so this handler is a self-contained Song.View
+        # surface. Comments trimmed relative to view.py's originals where the reasoning is
+        # identical; see view.py for the fuller rationale on each pattern.
+        #--------------------------------------------------------------------------------
+        def get_selected_scene(params: Optional[Tuple] = ()):
+            return (list(self.song.scenes).index(self.song.view.selected_scene),)
+
+        def get_selected_track(params: Optional[Tuple] = ()):
+            return (list(self.song.tracks).index(self.song.view.selected_track),)
+
+        def get_selected_clip(params: Optional[Tuple] = ()):
+            return (get_selected_track()[0], get_selected_scene()[0])
+
+        def get_selected_device(params: Optional[Tuple] = ()):
+            track = self.song.view.selected_track
+            device = track.view.selected_device
+            if device is None:
+                return (get_selected_track()[0], -1)
+            return (get_selected_track()[0], list(track.devices).index(device))
+
+        def set_selected_scene(params: Optional[Tuple] = ()):
+            self.song.view.selected_scene = self.song.scenes[params[0]]
+
+        def set_selected_track(params: Optional[Tuple] = ()):
+            self.song.view.selected_track = self.song.tracks[params[0]]
+
+        def set_selected_clip(params: Optional[Tuple] = ()):
+            set_selected_track((params[0],))
+            set_selected_scene((params[1],))
+
+        def set_selected_device(params: Optional[Tuple] = ()):
+            #--------------------------------------------------------------------------------
+            # Song.View.select_device(device) is Song.View's actual method for this --
+            # exposed here as a property-style setter to match /live/view/*'s existing
+            # convention, rather than as a separate "select_device" method endpoint that
+            # would just duplicate the same functionality under a different name.
+            #--------------------------------------------------------------------------------
+            device = self.song.tracks[params[0]].devices[params[1]]
+            self.song.view.select_device(device)
+            return params[0], params[1]
+
+        self.osc_server.add_handler("/live/song_view/get/selected_scene", get_selected_scene)
+        self.osc_server.add_handler("/live/song_view/get/selected_track", get_selected_track)
+        self.osc_server.add_handler("/live/song_view/get/selected_clip", get_selected_clip)
+        self.osc_server.add_handler("/live/song_view/get/selected_device", get_selected_device)
+        self.osc_server.add_handler("/live/song_view/set/selected_scene", set_selected_scene)
+        self.osc_server.add_handler("/live/song_view/set/selected_track", set_selected_track)
+        self.osc_server.add_handler("/live/song_view/set/selected_clip", set_selected_clip)
+        self.osc_server.add_handler("/live/song_view/set/selected_device", set_selected_device)
+
+        self.osc_server.add_handler('/live/song_view/start_listen/selected_scene',
+                                    partial(self._start_listen, self.song.view, "selected_scene", getter=get_selected_scene))
+        self.osc_server.add_handler('/live/song_view/start_listen/selected_track',
+                                    partial(self._start_listen, self.song.view, "selected_track", getter=get_selected_track))
+        self.osc_server.add_handler('/live/song_view/stop_listen/selected_scene',
+                                    partial(self._stop_listen, self.song.view, "selected_scene"))
+        self.osc_server.add_handler('/live/song_view/stop_listen/selected_track',
+                                    partial(self._stop_listen, self.song.view, "selected_track"))
+
+        #--------------------------------------------------------------------------------
+        # selected_clip: not a real Live property -- derived from selected_track and
+        # selected_scene together, so observing it means firing on either underlying
+        # change.
+        #--------------------------------------------------------------------------------
+        def start_listen_selected_clip(params: Optional[Tuple] = ()):
+            stop_listen_selected_clip()
+
+            def callback():
+                value = get_selected_clip()
+                self.logger.info("Property selected_clip changed of song_view: %s" % str(value))
+                self.osc_server.send("/live/song_view/get/selected_clip", value)
+
+            self.song.view.add_selected_track_listener(callback)
+            self.song.view.add_selected_scene_listener(callback)
+            self._selected_clip_listener_cb = callback
+            callback()
+
+        def stop_listen_selected_clip(params: Optional[Tuple] = ()):
+            callback = self._selected_clip_listener_cb
+            if callback is not None:
+                try:
+                    self.song.view.remove_selected_track_listener(callback)
+                except Exception:
+                    pass
+                try:
+                    self.song.view.remove_selected_scene_listener(callback)
+                except Exception:
+                    pass
+                self._selected_clip_listener_cb = None
+
+        self._stop_listen_selected_clip = stop_listen_selected_clip
+
+        self.osc_server.add_handler('/live/song_view/start_listen/selected_clip', start_listen_selected_clip)
+        self.osc_server.add_handler('/live/song_view/stop_listen/selected_clip', stop_listen_selected_clip)
+
+        #--------------------------------------------------------------------------------
+        # selected_device: lives on whichever track is currently selected, not on
+        # song.view itself -- watching it means re-attaching the device listener to the
+        # newly selected track's .view every time selected_track changes, in addition to
+        # listening for selected_device changes on the current one.
+        #--------------------------------------------------------------------------------
+        def start_listen_selected_device(params: Optional[Tuple] = ()):
+            stop_listen_selected_device()
+
+            def push_value():
+                value = get_selected_device()
+                self.logger.info("Property selected_device changed of song_view: %s" % str(value))
+                self.osc_server.send("/live/song_view/get/selected_device", value)
+
+            def device_changed():
+                push_value()
+
+            def track_changed():
+                state = self._selected_device_listener_state
+                if state["track"] is not None:
+                    try:
+                        state["track"].view.remove_selected_device_listener(state["device_cb"])
+                    except Exception:
+                        pass
+                new_track = self.song.view.selected_track
+                new_track.view.add_selected_device_listener(device_changed)
+                state["track"] = new_track
+                state["device_cb"] = device_changed
+                push_value()
+
+            self._selected_device_listener_state = {"track": None, "device_cb": None, "track_cb": track_changed}
+            self.song.view.add_selected_track_listener(track_changed)
+            track_changed()
+
+        def stop_listen_selected_device(params: Optional[Tuple] = ()):
+            state = self._selected_device_listener_state
+            if state is not None:
+                if state["track_cb"] is not None:
+                    try:
+                        self.song.view.remove_selected_track_listener(state["track_cb"])
+                    except Exception:
+                        pass
+                if state["track"] is not None and state["device_cb"] is not None:
+                    try:
+                        state["track"].view.remove_selected_device_listener(state["device_cb"])
+                    except Exception:
+                        pass
+                self._selected_device_listener_state = None
+
+        self._stop_listen_selected_device = stop_listen_selected_device
+
+        self.osc_server.add_handler('/live/song_view/start_listen/selected_device', start_listen_selected_device)
+        self.osc_server.add_handler('/live/song_view/stop_listen/selected_device', stop_listen_selected_device)

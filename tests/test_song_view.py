@@ -1,7 +1,8 @@
 from . import client, wait_one_tick, TICK_DURATION
 
 #--------------------------------------------------------------------------------
-# Test song_view (Song.View, excluding legacy /live/view/* selection state) features
+# Test song_view (full Song.View coverage, including the selection state also
+# available -- for backward compatibility -- under legacy /live/view/*) features
 #--------------------------------------------------------------------------------
 
 def test_draw_mode_get_set(client):
@@ -75,3 +76,56 @@ def test_highlighted_clip_slot_get_set(client):
     client.send_message("/live/song_view/set/highlighted_clip_slot", (1, 1))
     wait_one_tick()
     assert client.query("/live/song_view/get/highlighted_clip_slot") == (1, 1)
+
+#--------------------------------------------------------------------------------
+# selected_scene/selected_track/selected_clip/selected_device: full parity with
+# /live/view/*'s equivalents (test_view.py), reimplemented under /live/song_view/* --
+# see song_view.py for why this duplication is deliberate.
+#--------------------------------------------------------------------------------
+
+def test_selected_scene(client):
+    client.send_message("/live/song_view/set/selected_scene", (1,))
+    assert client.query("/live/song_view/get/selected_scene") == (1,)
+
+def test_selected_track(client):
+    client.send_message("/live/song_view/set/selected_track", (2,))
+    assert client.query("/live/song_view/get/selected_track") == (2,)
+
+def test_selected_clip(client):
+    client.send_message("/live/song_view/set/selected_clip", (3, 4))
+    assert client.query("/live/song_view/get/selected_clip") == (3, 4)
+
+def test_selected_device_no_device_selected(client):
+    # Track 1 has no devices, so nothing can be selected on it.
+    client.send_message("/live/song_view/set/selected_track", (1,))
+    wait_one_tick()
+    assert client.query("/live/song_view/get/selected_device") == (1, -1)
+
+def test_selected_clip_listen(client):
+    client.send_message("/live/song_view/set/selected_track", (0,))
+    client.send_message("/live/song_view/set/selected_scene", (0,))
+    wait_one_tick()
+
+    client.send_message("/live/song_view/start_listen/selected_clip")
+    assert client.await_message("/live/song_view/get/selected_clip", TICK_DURATION * 2) == (0, 0)
+
+    client.send_message("/live/song_view/set/selected_track", (1,))
+    assert client.await_message("/live/song_view/get/selected_clip", TICK_DURATION * 2) == (1, 0)
+
+    client.send_message("/live/song_view/set/selected_scene", (1,))
+    assert client.await_message("/live/song_view/get/selected_clip", TICK_DURATION * 2) == (1, 1)
+
+    client.send_message("/live/song_view/stop_listen/selected_clip")
+
+def test_selected_device_listen(client):
+    client.send_message("/live/song_view/set/selected_track", (0,))
+    client.send_message("/live/song_view/set/selected_device", (0, 0))
+    wait_one_tick()
+
+    client.send_message("/live/song_view/start_listen/selected_device")
+    assert client.await_message("/live/song_view/get/selected_device", TICK_DURATION * 2) == (0, 0)
+
+    client.send_message("/live/song_view/set/selected_track", (1,))
+    assert client.await_message("/live/song_view/get/selected_device", TICK_DURATION * 2) == (1, -1)
+
+    client.send_message("/live/song_view/stop_listen/selected_device")

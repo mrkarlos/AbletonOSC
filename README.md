@@ -261,8 +261,9 @@ To be notified whenever tracks or scenes are added, deleted, or reordered, call 
 
 Represents the view (user interface) of live. This section covers Song.View's selection
 state only (`selected_scene`/`selected_track`/`selected_clip`/`selected_device`), kept here
-for backward compatibility. The rest of Song.View lives under [Song View API](#song-view-api)
-below.
+for backward compatibility. [Song View API](#song-view-api) below covers the full
+`Song.View` class, including duplicates of everything in this section — new integrations
+should prefer `/live/song_view/*` over this legacy namespace.
 
 <details>
 <summary><b>Documentation</b>: View API</summary>
@@ -287,9 +288,15 @@ below.
 
 ## Song View API
 
-Represents the rest of Live's `Song.View` class, not already covered by [View API](#view-api)
-above (which keeps `selected_scene`/`selected_track`/`selected_clip`/`selected_device` for
-backward compatibility).
+Represents the full public surface of Live's `Song.View` class — draw_mode, follow_song,
+detail_clip, highlighted_clip_slot, selected_scene, selected_track, selected_device, and
+the derived selected_clip convenience.
+
+`selected_scene`/`selected_track`/`selected_clip`/`selected_device` are also available
+under legacy [View API](#view-api) (`/live/view/*`), kept there for backward compatibility.
+They're deliberately duplicated here too — as an independent implementation, not a
+delegation — so `/live/song_view/*` is a strict superset of `/live/view/*`: if `/live/view/*`
+is ever deprecated, anything already using `/live/song_view/*` is unaffected.
 
 <details>
 <summary><b>Documentation</b>: Song View API</summary>
@@ -310,9 +317,29 @@ backward compatibility).
 | /live/song_view/stop_listen/detail_clip          |                            |                             | Stop listening                                                                                     |
 | /live/song_view/get/highlighted_clip_slot        |                            | track_index, clip_index    | The Session View slot currently highlighted, as (track_index, clip_index); (-1, -1) if none       |
 | /live/song_view/set/highlighted_clip_slot        | track_index, clip_index    |                             | Set the highlighted slot                                                                            |
+| /live/song_view/get/selected_scene               |                            | scene_index                | Returns the selected scene index (first scene = 0)                                                |
+| /live/song_view/set/selected_scene               | scene_index                |                             | Set the selected scene (first scene = 0)                                                          |
+| /live/song_view/start_listen/selected_scene      |                            | scene_index                 | Start listening; replies sent to `.../get/selected_scene`                                         |
+| /live/song_view/stop_listen/selected_scene       |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/selected_track               |                            | track_index                | Returns the selected track index (first track = 0)                                                |
+| /live/song_view/set/selected_track               | track_index                |                             | Set the selected track (first track = 0)                                                          |
+| /live/song_view/start_listen/selected_track      |                            | track_index                 | Start listening; replies sent to `.../get/selected_track`                                         |
+| /live/song_view/stop_listen/selected_track       |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/selected_clip                |                            | track_index, scene_index   | Returns the track and scene index of the selected clip (derived from selected_track + selected_scene; not a real Song.View property) |
+| /live/song_view/set/selected_clip                | track_index, scene_index   |                             | Set the selected clip (sets selected_track and selected_scene together)                            |
+| /live/song_view/start_listen/selected_clip       |                            | track_index, scene_index   | Start listening (fires on either selected_track or selected_scene changing)                       |
+| /live/song_view/stop_listen/selected_clip        |                            |                             | Stop listening                                                                                     |
+| /live/song_view/get/selected_device              |                            | track_index, device_index  | The selected device on the selected track (first device = 0); -1 if none selected                 |
+| /live/song_view/set/selected_device              | track_index, device_index  |                             | Select the given device (wraps Song.View.select_device(device))                                    |
+| /live/song_view/start_listen/selected_device     |                            | track_index, device_index  | Start listening (re-attaches across a selected_track change)                                       |
+| /live/song_view/stop_listen/selected_device      |                            |                             | Stop listening                                                                                     |
 
-Note: `highlighted_clip_slot` has no `start_listen`/`stop_listen` support — Live does not expose
-a listener for this property.
+Notes:
+- `highlighted_clip_slot` has no `start_listen`/`stop_listen` support — Live does not expose
+  a listener for this property.
+- `selected_chain` and `selected_parameter` (Song.View's remaining two members) are not yet
+  supported: both need a chain/parameter addressing scheme this codebase doesn't have yet
+  (the same reason [Clip View API](#clip-view-api)'s `select_envelope_parameter` is omitted).
 
 </details>
 
