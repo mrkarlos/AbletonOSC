@@ -1,0 +1,26 @@
+/live/song_view/get/draw_mode
+/live/song_view/start_listen/draw_mode
+/live/song_view/set/draw_mode 1
+/live/song_view/set/draw_mode 0
+/live/song_view/stop_listen/draw_mode
+
+/live/song_view/get/follow_song
+/live/song_view/start_listen/follow_song
+/live/song_view/set/follow_song 1
+/live/song_view/set/follow_song 0
+/live/song_view/stop_listen/follow_song
+
+/live/song_view/get/detail_clip
+/live/song_view/get/highlighted_clip_slot
+
+/live/clip_slot/create_clip 0 0 8.0
+
+/live/song_view/start_listen/detail_clip
+/live/song_view/set/detail_clip 0 0
+/live/song_view/set/detail_clip -1 -1
+/live/song_view/stop_listen/detail_clip
+
+/live/song_view/set/highlighted_clip_slot 0 0
+/live/song_view/get/highlighted_clip_slot
+
+/live/track/delete_clip 0 0

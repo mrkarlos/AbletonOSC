@@ -1,0 +1,5 @@
+/live/device_view/get/is_collapsed 0 0
+/live/device_view/start_listen/is_collapsed 0 0
+/live/device_view/set/is_collapsed 0 0 1
+/live/device_view/set/is_collapsed 0 0 0
+/live/device_view/stop_listen/is_collapsed 0 0

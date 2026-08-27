@@ -100,11 +100,16 @@ class Manager(ControlSurface):
             self.handlers = [
                 abletonosc.SongHandler(self),
                 abletonosc.ApplicationHandler(self),
+                abletonosc.ApplicationViewHandler(self),
                 abletonosc.ClipHandler(self),
+                abletonosc.ClipViewHandler(self),
                 abletonosc.ClipSlotHandler(self),
                 abletonosc.TrackHandler(self),
+                abletonosc.TrackViewHandler(self),
                 abletonosc.DeviceHandler(self),
+                abletonosc.DeviceViewHandler(self),
                 abletonosc.ViewHandler(self),
+                abletonosc.SongViewHandler(self),
                 abletonosc.SessionRingHandler(self),
                 abletonosc.SceneHandler(self),
                 abletonosc.MidiMapHandler(self),
@@ -129,20 +134,25 @@ class Manager(ControlSurface):
     def reload_imports(self):
         try:
             importlib.reload(abletonosc.application)
+            importlib.reload(abletonosc.application_view)
             importlib.reload(abletonosc.clip)
             importlib.reload(abletonosc.clip_slot)
+            importlib.reload(abletonosc.clip_view)
             importlib.reload(abletonosc.device)
+            importlib.reload(abletonosc.device_view)
             importlib.reload(abletonosc.handler)
             importlib.reload(abletonosc.osc_server)
             importlib.reload(abletonosc.scene)
             importlib.reload(abletonosc.song)
+            importlib.reload(abletonosc.song_view)
             importlib.reload(abletonosc.track)
+            importlib.reload(abletonosc.track_view)
             importlib.reload(abletonosc.view)
             importlib.reload(abletonosc.session_ring)
             importlib.reload(abletonosc)
         except Exception as e:
             exc = traceback.format_exc()
-            logging.warning(exc)
+            logger.warning(exc)
 
         self.clear_api()
         self.init_api()

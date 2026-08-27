@@ -26,7 +26,25 @@ class AbletonOSCHandler(Component):
     #--------------------------------------------------------------------------------
     def _call_method(self, target, method, params: Optional[Tuple] = ()):
         self.logger.info("Calling method for %s: %s (params %s)" % (self.class_identifier, method, str(params)))
-        getattr(target, method)(*params)
+        rv = getattr(target, method)(*params)
+        if rv is not None:
+            #--------------------------------------------------------------------------------
+            # Normalise the return value the same way _start_listen normalises listener
+            # values, so a method that returns e.g. a bool (Track.View.select_instrument) or
+            # a list (Application.View.available_main_views) can be sent back over OSC without
+            # every caller needing its own wrapper.
+            #
+            # Some pre-existing methods (e.g. ClipSlot.create_clip) return a live Live API
+            # object (a Clip, Track, Scene, ...) rather than an OSC-primitive value -- those
+            # aren't serialisable, so only surface the return value if every element is
+            # already an OSC-safe primitive type; otherwise fall back to the original
+            # behaviour of discarding it silently, exactly as before this method captured
+            # return values at all.
+            #--------------------------------------------------------------------------------
+            if type(rv) is not tuple:
+                rv = tuple(rv) if isinstance(rv, list) else (rv,)
+            if all(isinstance(item, (str, bytes, bool, int, float)) for item in rv):
+                return rv
 
     def _set_property(self, target, prop, params: Tuple) -> None:
         self.logger.info("Setting property for %s: %s (new value %s)" % (self.class_identifier, prop, params[0]))
