@@ -40,6 +40,7 @@ same IP as the originating message. When querying properties, OSC wildcard patte
 |:------------------------------|:-------------|:-----------------------------|:-----------------------------------------------------------------------------------------|
 | /live/test                    |              | 'ok'                         | Display a confirmation message in Live, and sends an OSC reply to /live/test             |
 | /live/application/get/version |              | major_version, minor_version | Query Live's version                                                                     |
+| /live/api/get/version         |              | version                      | Query AbletonOSC's own version (SemVer string, e.g. `"0.1.0"`), from the `VERSION` file at the repo root. Also logged once on startup. |
 | /live/api/reload              |              |                              | Initiates a live reload of the AbletonOSC server code. Used in development only.         |
 | /live/api/clear_listeners     |              |                              | Clears all registered Live API listener state (equivalent to what `/live/api/reload` does to each handler's listeners), without touching OSC address routing. Safe to call standalone, unlike a full reload. |
 | /live/api/get/log_level       |              | log_level                    | Returns the current log level. Default is `info`.                                        |
