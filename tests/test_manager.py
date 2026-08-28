@@ -33,3 +33,13 @@ def test_clear_listeners_preserves_osc_routing(client):
     """
     client.send_message("/live/api/clear_listeners")
     assert client.query("/live/song/get/tempo", timeout=TICK_DURATION * 2) is not None
+
+#--------------------------------------------------------------------------------
+# /live/api/get/ping
+#--------------------------------------------------------------------------------
+
+def test_ping(client):
+    response = client.query("/live/api/get/ping")
+    assert response[0] == "pong"
+    assert isinstance(response[1], float)
+    assert response[1] >= 0

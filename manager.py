@@ -10,6 +10,7 @@ import importlib
 import traceback
 import logging
 import os
+import time
 
 logger = logging.getLogger("abletonosc")
 
@@ -24,6 +25,7 @@ class Manager(ControlSurface):
         self.session_ring = None
 
         self.version = read_version()
+        self.start_time = time.time()
 
         try:
             self.osc_server = abletonosc.OSCServer()
@@ -93,6 +95,8 @@ class Manager(ControlSurface):
             self.show_message(params[0])
         def get_version_callback(params):
             return (self.version,)
+        def get_ping_callback(params):
+            return ("pong", time.time() - self.start_time)
 
         self.osc_server.add_handler("/live/test", test_callback)
         self.osc_server.add_handler("/live/api/reload", reload_callback)
@@ -101,6 +105,7 @@ class Manager(ControlSurface):
         self.osc_server.add_handler("/live/api/set/log_level", set_log_level_callback)
         self.osc_server.add_handler("/live/api/show_message", show_message_callback)
         self.osc_server.add_handler("/live/api/get/version", get_version_callback)
+        self.osc_server.add_handler("/live/api/get/ping", get_ping_callback)
 
         with self.component_guard():
 
