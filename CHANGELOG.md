@@ -7,6 +7,11 @@ tracking.
 
 ## Unreleased
 
+- Added a `VERSION` file (SemVer, starting at `0.1.0`) as the single source of truth for
+  AbletonOSC's own version -- previously untracked anywhere. It's logged once on startup
+  (`logs/abletonosc.log`) and queryable live via the new `/live/api/get/version`, which
+  replies with the version string, alongside `/live/application/get/version` for Live's own
+  version.
 - Added `/live/api/clear_listeners`, which clears all registered Live API listener state
   (equivalent to what `/live/api/reload` does to each handler's listeners) without
   touching OSC address routing or reloading any Python modules. Useful for a client that

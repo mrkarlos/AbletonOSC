@@ -4,6 +4,7 @@ from _Framework.EncoderElement import EncoderElement
 import Live
 
 from . import abletonosc
+from .abletonosc.version import read_version
 
 import importlib
 import traceback
@@ -22,15 +23,19 @@ class Manager(ControlSurface):
         self.midi_mappings = {}
         self.session_ring = None
 
+        self.version = read_version()
+
         try:
             self.osc_server = abletonosc.OSCServer()
             self.schedule_message(0, self.tick)
 
             self.start_logging()
+            if self.version == "unknown":
+                logger.warning("Could not read VERSION file; reporting version as \"unknown\"")
             self.init_api()
 
             self.show_message("AbletonOSC: Listening for OSC on port %d" % abletonosc.OSC_LISTEN_PORT)
-            logger.info("Started AbletonOSC on address %s" % str(self.osc_server._local_addr))
+            logger.info("Started AbletonOSC %s on address %s" % (self.version, str(self.osc_server._local_addr)))
         except OSError as msg:
             self.show_message("AbletonOSC: Couldn't bind to port %d (%s)" % (abletonosc.OSC_LISTEN_PORT, msg))
             logger.info("Couldn't bind to port %d (%s)" % (abletonosc.OSC_LISTEN_PORT, msg))
@@ -86,6 +91,8 @@ class Manager(ControlSurface):
             self.log_file_handler.setLevel(self.log_level.upper())
         def show_message_callback(params):
             self.show_message(params[0])
+        def get_version_callback(params):
+            return (self.version,)
 
         self.osc_server.add_handler("/live/test", test_callback)
         self.osc_server.add_handler("/live/api/reload", reload_callback)
@@ -93,6 +100,7 @@ class Manager(ControlSurface):
         self.osc_server.add_handler("/live/api/get/log_level", get_log_level_callback)
         self.osc_server.add_handler("/live/api/set/log_level", set_log_level_callback)
         self.osc_server.add_handler("/live/api/show_message", show_message_callback)
+        self.osc_server.add_handler("/live/api/get/version", get_version_callback)
 
         with self.component_guard():
 
