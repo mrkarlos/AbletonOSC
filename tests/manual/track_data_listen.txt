@@ -1,0 +1,23 @@
+/live/song/get/track_data_auto_rebuild
+
+/live/song/start_listen/track_data 2 4 track.name clip.name
+
+/live/track/set/name 2 "Manual Test Track"
+/live/track/set/name 2 "Track 3"
+
+/live/song/create_scene -1
+/live/clip_slot/create_clip 2 2 4.0
+/live/clip_slot/delete_clip 2 2
+/live/song/delete_scene 2
+
+/live/song/create_audio_track -1
+/live/song/delete_track 7
+
+/live/song/stop_listen/track_data 2 4
+
+/live/song/set/track_data_auto_rebuild 0
+/live/song/start_listen/track_data 2 4 clip.name
+/live/clip_slot/create_clip 2 2 4.0
+/live/clip_slot/delete_clip 2 2
+/live/song/stop_listen/track_data 2 4
+/live/song/set/track_data_auto_rebuild 1

@@ -199,13 +199,17 @@ for [Live Object Model - Song](https://docs.cycling74.com/max8/vignettes/live_ob
 | /live/song/get/tracks      |              | name, name, ...        | Query all track names in their current order                               |
 | /live/song/get/scenes      |              | name, name, ...        | Query all scene names in their current order                                |
 | /live/song/get/track_data  |              | [various]              | Query bulk properties of multiple tracks/clips. See below for further info. |
+| /live/song/start_listen/track_data | index_min, index_max, prop, ... | [various] | Start bulk-listening for changes to the given properties, across the given tracks. See below for further info. |
+| /live/song/stop_listen/track_data | index_min, index_max, [prop, ...] | | Stop bulk-listening. See below for further info. |
+| /live/song/get/track_data_auto_rebuild |  | enabled | Query whether `track_data` listeners automatically extend to newly-created clips/tracks/scenes. See below. |
+| /live/song/set/track_data_auto_rebuild | enabled | | Set whether `track_data` listeners automatically extend to newly-created clips/tracks/scenes. See below. |
 
 
 #### Querying track/clip data in bulk with /live/song/get/track_data
 
 It is often useful to be able to query data en masse about lots of different tracks and clips -- for example, when a set is first opened, to synchronise the state of your client with the Ableton set. This can be achieved with the `/live/song/get/track_data` API, which can query user-specified properties of multiple tracks and clips.
 
-Properties must be of the format `track.property_name`, `clip.property_name` or `clip_slot.property_name`.
+Properties must be of the format `track.property_name`, `clip.property_name`, `clip_slot.property_name` or `device.property_name`.
 
 For example:
 ```
@@ -219,6 +223,59 @@ Queries tracks 0..11, and returns a long list of values comprising:
                clip_1_0_length, clip_0_1_length, ... clip_0_7_length,
  track_1_name, clip_1_0_name,   clip_1_1_name,   ... clip_1_7_name, ...]
 ```
+
+#### Bulk-listening for track/clip data changes with /live/song/start_listen/track_data
+
+Building the same picture of a set incrementally with individual `start_listen` calls
+requires one call per track × scene combination. `start_listen/track_data` does it in one
+call: it takes the same params as `get/track_data`, and
+
+1. replies once, immediately, to `/live/song/get/track_data`, with exactly what a
+   `get/track_data` call with the same params would have returned; then
+2. arms the normal individual listener for every `track.*`/`clip.*`/`clip_slot.*`/`device.*`
+   property in range -- so all *subsequent* updates arrive via the ordinary per-property
+   addresses (`/live/track/get/<prop>`, `/live/clip/get/<prop>`, `/live/clip_slot/get/<prop>`,
+   `/live/device/get/<prop>`), exactly as if you had called that object's own `start_listen`
+   directly for every track/clip/device in range.
+
+```
+/live/song/start_listen/track_data 0 12 track.name clip.name clip.length
+-> /live/song/get/track_data  [same shape as a get/track_data 0 12 track.name clip.name clip.length reply]
+   ... later ...
+-> /live/track/get/name  0 "Drums"
+-> /live/clip/get/length 3 2 8.0
+```
+
+Repeated `start_listen/track_data` calls merge: a second call unions its own range ×
+properties into whatever's already active, rather than replacing it.
+
+`stop_listen/track_data <index_min> <index_max> [prop, ...]` reverses this. With properties
+given, it removes exactly those track × property combinations; with none given, it removes
+every `track_data` listener for tracks in that range, regardless of property.
+
+By default (`track_data_auto_rebuild` enabled), coverage automatically follows structural
+changes: a clip created in a previously-empty watched slot picks up its requested clip
+properties with no further `start_listen` call, and listeners are dropped for clips/tracks
+that disappear. Track/scene reorders are also handled. Devices added to or removed from a
+track are **not** auto-tracked -- `device.*` coverage reflects whatever devices existed when
+`start_listen`/the last rebuild ran; re-issue `start_listen/track_data` after a device is
+added if you need it picked up. This can be disabled per-session with
+`/live/song/set/track_data_auto_rebuild 0` if you'd rather manage re-subscription yourself;
+the flag (and all `track_data` listen state) resets to enabled every time a Set is (re)loaded
+or `/live/api/reload` runs.
+
+Two caveats:
+
+- `track.num_devices` is a synthetic value (`len(track.devices)`) with no native Live
+  listener. `get/track_data` supports reading it; `start_listen/track_data` silently skips it
+  (logging a warning) since there's nothing to listen to.
+- `track.*`/`clip.*`/`clip_slot.*` listeners registered this way share the same underlying
+  native listener as the plain `/live/track|clip|clip_slot/start_listen/<prop>` endpoints for
+  the same track/clip index. If you also listen to the same property/index directly,
+  `stop_listen/track_data` tearing it down will stop that listener too, and vice versa. This
+  does not apply to `device.*` properties, which `track_data` always registers with explicit
+  track/device ids, unlike the plain `/live/device/start_listen/<prop>` endpoints (other than
+  `parameter/value`).
 
 ### Finding tracks and devices by name/class
 

@@ -1,12 +1,18 @@
-# Manual integration tests: `.View` namespaces
+# Manual integration tests
 
-Plain OSC command scripts for smoke-testing the `application_view`, `song_view`,
-`track_view`, `clip_view` and `device_view` namespaces against a real, running Ableton Live
-instance, using `run-console.py`. Unlike the automated suite in `tests/`, these don't assert
-anything — they're meant to be read by eye, in verbose mode, to catch things a `pytest` run
-can't easily surface remotely (e.g. an `AttributeError` deep in Live's log because a
-property turns out not to have a real `add_<prop>_listener`, despite the LOM docs saying
-it's observable).
+Plain OSC command scripts for smoke-testing behavior against a real, running Ableton Live
+instance, using `run-console.py`, that the automated suite in `tests/` can't easily cover.
+Unlike that suite, these don't assert anything — they're meant to be read by eye, in verbose
+mode.
+
+Most of these cover the `application_view`, `song_view`, `track_view`, `clip_view` and
+`device_view` namespaces, catching things like an `AttributeError` deep in Live's log
+because a property turns out not to have a real `add_<prop>_listener`, despite the LOM docs
+saying it's observable. `track_data_listen.txt` is different: it exercises
+`start_listen`/`stop_listen` on `/live/song/*/track_data`, specifically the auto-rebuild
+behavior on track/scene count changes -- too invasive against the shared `tests/` fixture
+Set to automate (see `tests/test_song_track_data_listen.py` for the automated coverage of
+everything else about that feature).
 
 ## Prerequisites
 
@@ -24,6 +30,7 @@ python3 run-console.py -v < tests/manual/song_view.txt
 python3 run-console.py -v < tests/manual/track_view.txt
 python3 run-console.py -v < tests/manual/clip_view.txt
 python3 run-console.py -v < tests/manual/device_view.txt
+python3 run-console.py -v < tests/manual/track_data_listen.txt
 ```
 
 `run-console.py` sends `/live/api/reload` on startup, so each run exercises the latest
@@ -54,3 +61,10 @@ handler code with no manual reload step needed.
 - Each file ends by restoring anything it changed (track collapse state, draw mode,
   browse mode, created clips, etc.) — if a run is interrupted partway through, check the Set
   by hand before re-running.
+- `track_data_listen.txt` is checking that `start_listen/track_data`'s coverage survives
+  structural changes with no further `start_listen` call needed: watch for a
+  `/live/track/get/name` push after each `set/name`, and a `/live/clip/get/name` push after
+  each `create_clip`/`delete_clip` on track 2 or 3 — including the ones that happen *after*
+  a scene or track is added/removed elsewhere in the Set, which is the part `pytest` can't
+  safely exercise against the shared fixture Set. In the final block (auto-rebuild disabled),
+  confirm the opposite: no `/live/clip/get/name` push arrives for the `create_clip`.
