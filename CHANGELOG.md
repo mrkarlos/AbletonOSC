@@ -7,6 +7,11 @@ tracking.
 
 ## Unreleased
 
+- Added `/live/api/clear_listeners`, which clears all registered Live API listener state
+  (equivalent to what `/live/api/reload` does to each handler's listeners) without
+  touching OSC address routing or reloading any Python modules. Useful for a client that
+  wants to reset stale listener state (e.g. after Live loads a new Set) before
+  re-registering listeners, without the address-routing churn of a full `/live/api/reload`.
 - Fixed `/live/song_view/set/detail_clip` throwing a `Boost.Python.ArgumentError` (logged
   as an ERROR + traceback on every call) when passed `(-1, -1)` to clear it — Live's
   `Song.View.detail_clip` setter doesn't accept `None`. There's no supported way to
