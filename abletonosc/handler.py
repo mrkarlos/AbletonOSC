@@ -93,8 +93,21 @@ class AbletonOSCHandler(Component):
 
         self.logger.info("Adding listener for %s %s, property: %s" % (self.class_identifier, str(params), prop))
         add_listener_function_name = "add_%s_listener" % prop
-        add_listener_function = getattr(target, add_listener_function_name)
-        add_listener_function(property_changed_callback)
+        try:
+            add_listener_function = getattr(target, add_listener_function_name)
+            add_listener_function(property_changed_callback)
+        except (AttributeError, RuntimeError) as e:
+            #--------------------------------------------------------------------------------
+            # Some properties (e.g. Clip.length) have no native Live listener at all -- there
+            # is no add_<prop>_listener to call, or Live refuses to add one. Warn and bail out
+            # without registering anything, rather than letting this propagate: uncaught, it
+            # would abort whatever loop is calling _start_listen part-way through (e.g.
+            # track_data's per-track batch of properties), silently dropping every *sibling*
+            # property still left to process for no reason related to them.
+            #--------------------------------------------------------------------------------
+            self.logger.warning("Could not add listener for %s %s, property %s (likely not observable): %s" %
+                                 (self.class_identifier, str(params), prop, e))
+            return
         self.listener_functions[listener_key] = property_changed_callback
         self.listener_objects[listener_key] = target
         #--------------------------------------------------------------------------------
