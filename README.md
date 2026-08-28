@@ -239,11 +239,11 @@ call: it takes the same params as `get/track_data`, and
    directly for every track/clip/device in range.
 
 ```
-/live/song/start_listen/track_data 0 12 track.name clip.name clip.length
--> /live/song/get/track_data  [same shape as a get/track_data 0 12 track.name clip.name clip.length reply]
+/live/song/start_listen/track_data 0 12 track.name clip.name clip.start_time
+-> /live/song/get/track_data  [same shape as a get/track_data 0 12 track.name clip.name clip.start_time reply]
    ... later ...
 -> /live/track/get/name  0 "Drums"
--> /live/clip/get/length 3 2 8.0
+-> /live/clip/get/start_time 3 2 8.0
 ```
 
 Repeated `start_listen/track_data` calls merge: a second call unions its own range ×
@@ -269,6 +269,13 @@ Two caveats:
 - `track.num_devices` is a synthetic value (`len(track.devices)`) with no native Live
   listener. `get/track_data` supports reading it; `start_listen/track_data` silently skips it
   (logging a warning) since there's nothing to listen to.
+- Likewise, several `clip.*` read-only properties have no native Live listener: `length`,
+  `is_audio_clip`, `is_midi_clip`, `is_triggered`, `will_record_on_start`, `has_groove`,
+  `file_path`, `gain_display_string`, `sample_length`. `get/track_data` (and the plain
+  `/live/clip/get/<prop>` endpoints) can still read all of these; `start_listen/track_data`
+  (and `/live/clip/start_listen/<prop>`) silently skips them (logging a warning) for the same
+  reason. Use `clip.start_time`, `clip.end_time`, `clip.playing_position`, `clip.is_recording`
+  or `clip.is_overdubbing` instead if you need to listen for clip-length-adjacent changes.
 - `track.*`/`clip.*`/`clip_slot.*` listeners registered this way share the same underlying
   native listener as the plain `/live/track|clip|clip_slot/start_listen/<prop>` endpoints for
   the same track/clip index. If you also listen to the same property/index directly,

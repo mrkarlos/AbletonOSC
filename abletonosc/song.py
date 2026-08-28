@@ -22,6 +22,25 @@ from .handler import AbletonOSCHandler
 #--------------------------------------------------------------------------------
 _TRACK_DATA_OBJECT_TYPES = ("track", "clip", "clip_slot", "device")
 
+#--------------------------------------------------------------------------------
+# clip.* properties with no native Live listener (add_<prop>_listener doesn't exist),
+# confirmed against the LOM reference. get/track_data can still read these; listening
+# for changes cannot work, so _track_data_resolve skips them up front rather than
+# attempting and failing on every clip creation -- mirroring the track.num_devices
+# special case below.
+#--------------------------------------------------------------------------------
+_TRACK_DATA_CLIP_PROPERTIES_WITHOUT_LISTENER = (
+    "length",
+    "is_audio_clip",
+    "is_midi_clip",
+    "is_triggered",
+    "will_record_on_start",
+    "has_groove",
+    "file_path",
+    "gain_display_string",
+    "sample_length",
+)
+
 class SongHandler(AbletonOSCHandler):
     def __init__(self, manager):
         super().__init__(manager)
@@ -550,6 +569,14 @@ class SongHandler(AbletonOSCHandler):
             return [(handler, clip_slot, property_name, (track_index, clip_index))
                     for clip_index, clip_slot in enumerate(track.clip_slots)]
         elif obj == "clip":
+            if property_name in _TRACK_DATA_CLIP_PROPERTIES_WITHOUT_LISTENER:
+                #--------------------------------------------------------------------------------
+                # See _TRACK_DATA_CLIP_PROPERTIES_WITHOUT_LISTENER above -- no native Live
+                # listener exists for this property. get/track_data still supports reading it;
+                # listening for changes is not supported.
+                #--------------------------------------------------------------------------------
+                self.logger.warning("clip.%s cannot be listened for (no native listener); skipping" % property_name)
+                return []
             handler = self._track_data_get_sibling_handler("clip")
             if not handler:
                 return []
@@ -647,6 +674,11 @@ class SongHandler(AbletonOSCHandler):
             if track_idx != track_index or not prop_string.startswith("clip."):
                 continue
             property_name = prop_string.split(".", 1)[1]
+            if property_name in _TRACK_DATA_CLIP_PROPERTIES_WITHOUT_LISTENER:
+                # See _TRACK_DATA_CLIP_PROPERTIES_WITHOUT_LISTENER -- already warned about once
+                # in _track_data_resolve when start_listen/track_data was first called; no need
+                # to retry (and fail, and re-warn) on every clip that appears.
+                continue
             listener_key = (property_name, (track_index, clip_index))
             if clip_slot.clip is not None:
                 if listener_key not in clip_handler.listener_functions:

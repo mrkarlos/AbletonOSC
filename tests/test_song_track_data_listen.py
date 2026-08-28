@@ -150,6 +150,27 @@ def test_track_data_auto_rebuild_new_clip(client):
     wait_one_tick()
     client.send_message("/live/song/stop_listen/track_data", (1, 2, "clip.name"))
 
+def test_track_data_listen_skips_non_observable_clip_property_without_blocking_siblings(client):
+    #--------------------------------------------------------------------------------
+    # clip.length has no native Live listener (see _TRACK_DATA_CLIP_PROPERTIES_WITHOUT_LISTENER
+    # in song.py) and used to raise inside _track_data_on_has_clip_changed's per-property loop,
+    # silently aborting it -- which could skip registering the *sibling* clip.name listener for
+    # the same clip, depending on unordered set iteration. Requesting both together must not
+    # prevent clip.name's listener (and push) from working.
+    #--------------------------------------------------------------------------------
+    client.send_message("/live/song/start_listen/track_data", (1, 2, "clip.name", "clip.length"))
+    client.await_message("/live/song/get/track_data", TICK_DURATION * 4)
+
+    client.send_message("/live/clip_slot/create_clip", (1, 1, 4.0))
+    assert client.await_message("/live/clip/get/name", TICK_DURATION * 4)[:2] == (1, 1)
+
+    client.send_message("/live/clip/set/name", (1, 1, "tmp_clip_name"))
+    assert client.await_message("/live/clip/get/name", TICK_DURATION * 4) == (1, 1, "tmp_clip_name")
+
+    client.send_message("/live/clip_slot/delete_clip", (1, 1))
+    wait_one_tick()
+    client.send_message("/live/song/stop_listen/track_data", (1, 2, "clip.name", "clip.length"))
+
 def test_track_data_auto_rebuild_disabled_new_clip(client):
     client.send_message("/live/song/set/track_data_auto_rebuild", (0,))
 
