@@ -75,6 +75,8 @@ class Manager(ControlSurface):
             self.osc_server.send("/live/test", ("ok",))
         def reload_callback(params):
             self.reload_imports()
+        def clear_listeners_callback(params):
+            self.clear_listeners()
         def get_log_level_callback(params):
             return (self.log_level,)
         def set_log_level_callback(params):
@@ -87,6 +89,7 @@ class Manager(ControlSurface):
 
         self.osc_server.add_handler("/live/test", test_callback)
         self.osc_server.add_handler("/live/api/reload", reload_callback)
+        self.osc_server.add_handler("/live/api/clear_listeners", clear_listeners_callback)
         self.osc_server.add_handler("/live/api/get/log_level", get_log_level_callback)
         self.osc_server.add_handler("/live/api/set/log_level", set_log_level_callback)
         self.osc_server.add_handler("/live/api/show_message", show_message_callback)
@@ -119,6 +122,22 @@ class Manager(ControlSurface):
         self.osc_server.clear_handlers()
         for handler in self.handlers:
             handler.clear_api()
+
+    def clear_listeners(self):
+        """
+        Clears all handlers' Live API listener state (equivalent to what clear_api() does
+        to each handler), without touching OSC address routing. Unlike clear_api(), this
+        is safe to call on its own -- clear_api() is only safe today because
+        reload_imports() always follows it with init_api() to rebuild every registered
+        address.
+
+        Intended for a client to call before it re-registers listeners for a new song, to
+        reset stale listener state (e.g. after Live loads a new Set and recreates this
+        Manager from scratch) without the address-routing churn of a full reload.
+        """
+        for handler in self.handlers:
+            handler.clear_api()
+        logger.info("Cleared all listeners")
 
     def tick(self):
         """
