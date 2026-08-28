@@ -1,0 +1,25 @@
+name: Unit tests
+
+# tests_unit/ is pure Python and needs no running Ableton Live instance, so it's
+# safe to run in CI. tests/ (integration) requires a live Ableton process with
+# AbletonOSC loaded per TESTING.md and is intentionally not run here.
+on:
+  push:
+    branches: [develop]
+  pull_request:
+
+jobs:
+  tests_unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Run unit tests
+        run: pytest tests_unit/
